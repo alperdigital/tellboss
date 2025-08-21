@@ -1,0 +1,78 @@
+generator client { provider = "prisma-client-js" }
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role { ADMIN SUPERVISOR AGENT FRONTDESK }
+enum Status { OPEN IN_PROGRESS RESOLVED }
+
+model User {
+  id           String      @id @default(cuid())
+  email        String      @unique
+  passwordHash String
+  role         Role        @default(FRONTDESK)
+  createdAt    DateTime    @default(now())
+  complaints   Complaint[] @relation("CreatedBy")
+}
+
+model Department {
+  id         String       @id @default(cuid())
+  name       String       @unique
+  createdAt  DateTime     @default(now())
+  complaints Complaint[]
+}
+
+model Complaint {
+  id            String        @id @default(cuid())
+  title         String
+  description   String
+  status        Status        @default(OPEN)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  department    Department    @relation(fields: [departmentId], references: [id])
+  departmentId  String
+
+  createdBy     User          @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById   String
+
+  events        ComplaintEvent[]
+  attachments   Attachment[]
+}
+
+model ComplaintEvent {
+  id           String    @id @default(cuid())
+  type         String
+  payloadJson  Json?
+  createdAt    DateTime  @default(now())
+
+  complaint    Complaint @relation(fields: [complaintId], references: [id])
+  complaintId  String
+}
+
+model Attachment {
+  id           String    @id @default(cuid())
+  url          String
+  type         String
+  createdAt    DateTime  @default(now())
+
+  complaint    Complaint @relation(fields: [complaintId], references: [id])
+  complaintId  String
+}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
