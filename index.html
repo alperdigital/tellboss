@@ -170,6 +170,7 @@ function splitItems(original) {
   const sentences = original.split(/\s*[;\r\n]+\s*|(?<=[.!?])\s+/u);
   for (const [sentenceIndex, sentence] of sentences.entries()) {
     let declaredType;
+    const sentenceHasOrder = menuMatches(orderWords(sentence)).some(product => product.quantity);
     const fragments = sentence.split(/\s*,\s*|\s+(?:ama|ancak|fakat|ayrıca|bir de|öte yandan|bunun yanında)\s+/iu)
       .flatMap(splitOrderConjunctions);
     for (const fragment of fragments) {
@@ -189,7 +190,7 @@ function splitItems(original) {
       const normalized = withoutNegatedAlerts(searchable(body));
       const explicitOrder = declaredType === types.order;
       if (explicitOrder && !body) continue;
-      if ((!label || explicitOrder) && parseOrderPart(body, explicitOrder, items)) continue;
+      if ((!label || explicitOrder) && parseOrderPart(body, explicitOrder, items, sentenceHasOrder)) continue;
       const topic = classifyTopic(normalized);
       const declaredReportType = explicitOrder ? undefined : declaredType;
       const inferredType = declaredReportType ?? classifyType(normalized);
@@ -283,6 +284,7 @@ const menu = [
   ['Filtre kahve', /^filtre kahve(?:yi|ye)?$/u],
   ['Meyve suyu', /^meyve suyu(?:nu|na)?$/u],
   ['Sıcak çikolata', /^sicak cikolata(?:yi|ya)?$/u],
+  ['Çiğ köfte', /^cig kofte(?:yi|ye|ler|leri)?$/u],
   ['Kulüp sandviç', /^kulup sandvic(?:i|e|in|te)?$/u],
   ['Çay', /^cay(?:i|a|dan|lar|lari)?$/u],
   ['Kahve', /^(?:kahve(?:yi|ye|ler)?|espresso|latte|cappuccino|americano)$/u],
@@ -305,13 +307,16 @@ const menu = [
 ];
 const units = new Set(['adet', 'tane', 'porsiyon', 'bardak', 'fincan', 'sise']);
 const descriptions = new Set(['buyuk', 'orta', 'kucuk', 'sade', 'demli', 'acik', 'sicak', 'soguk', 'duble']);
-const optionScope = new Set(['icinde', 'icine', 'icinden', 'icini', 'uzerine', 'uzerinde', 'yanina', 'yaninda', 'lutfen', 'da', 'de', 'biraz', 'ekstra', 'ilave']);
+const optionScope = new Set(['icinde', 'icine', 'icinden', 'icini', 'uzerine', 'uzerinde', 'yanina', 'yaninda', 'icin', 'lutfen', 'da', 'de', 'biraz', 'ekstra', 'ilave']);
 const ignoredOptions = new Set(['acil', 'cabuk', 'hemen', 'hazir', 'tesekkurler', 'sicak', 'soguk']);
 const numberWords = new Map([
   ['bir', 1], ['iki', 2], ['uc', 3], ['dort', 4], ['bes', 5], ['alti', 6], ['yedi', 7], ['sekiz', 8], ['dokuz', 9],
   ['on', 10], ['yirmi', 20], ['otuz', 30], ['kirk', 40], ['elli', 50], ['altmis', 60], ['yetmis', 70], ['seksen', 80], ['doksan', 90],
 ]);
 const requestTerms = ['istiyorum', 'istiyoruz', 'alabilir miyim', 'alabilir miyiz', 'alalim', 'alabilirsem', 'getirin', 'getirir misiniz', 'getirebilir misiniz', 'verir misiniz', 'rica ediyorum', 'rica ederim', 'siparis vermek istiyorum'];
+const endOfProductName = new Set([...requestTerms.map(term => term.split(' ')[0]), 'icine', 'icinde', 'icinden', 'uzerine', 'yanina', 'icin', 'lutfen', 'ekstra', 'ilave']);
+const nonOrderCount = /^(?:(?:saat|dakika|saniye|gun|gece|hafta|ay|yil|kisi|oda|numara)(?:dir|dur|lik|larda|dan|den|lar)?|numarali|kat|lira|tl|defa|kere|kez|bardakta|fotograf|telefon|mesaj|konu|sikinti|sey|problem|sorun)$/u;
+const reportWords = /(?:^| )(?:var|yok|geldi|geldiler|kaldik|kaldim|bekledim|bekledik|gorustum|yasadim)(?= )/u;
 const pastOrderTerms = ['gelmedi*', 'yanlis', 'eksik', 'fazla geldi', 'soguk geldi', 'soguktu', 'gec geldi', 'aldim', 'aldik', 'istedim', 'istedik', 'demistim', 'siparis ettim', 'siparis verdim', 'siparis verdik', 'iade*', 'gecikti*'];
 const foodOptions = new Set(['tursu', 'sogan', 'kasar', 'ketcap', 'mayonez', 'domates', 'marul', 'hardal']);
 const drinks = new Set(['Çay', 'Kahve', 'Türk kahvesi', 'Filtre kahve', 'Meyve suyu', 'Sıcak çikolata', 'Su', 'Soda', 'Limonata', 'Ayran']);
@@ -370,7 +375,7 @@ function menuMatches(words) {
       quantity = quantityAt(words, end);
       if (quantity && units.has(words[end + 1]?.key)) unit = words[end + 1].raw;
     }
-    if (!found.length && quantity?.start < index) {
+    if (!found.length && quantity?.start < index && words.slice(0, quantity.start).every(word => suffixOption(word))) {
       for (let offset = quantity.start - 1; offset >= 0; offset--) {
         const option = suffixOption(words[offset]);
         if (!option) break;
@@ -386,6 +391,58 @@ function menuMatches(words) {
     if (double) index++;
   }
   return found;
+}
+
+function quantitySpans(words) {
+  const spans = new Map();
+  for (const [index] of words.entries()) {
+    const quantity = quantityAt(words, index);
+    if (quantity) spans.set(quantity.start, { ...quantity, end: index + 1 });
+  }
+  return [...spans.values()];
+}
+
+function addUnlistedProducts(words, known, inOrderContext) {
+  const quantities = quantitySpans(words);
+  const looksLikeList = quantities.length > 1 && quantities[0].start === 0;
+  const extra = [];
+  for (const [index, quantity] of quantities.entries()) {
+    if (known.some(product => product.quantity?.start === quantity.start)) continue;
+
+    const unit = units.has(words[quantity.end]?.key) ? words[quantity.end].raw : '';
+    const start = quantity.end + (unit ? 1 : 0);
+    if (nonOrderCount.test(words[start]?.key ?? '')) continue;
+    const nextProduct = known.find(product => product.quantity && product.start >= start);
+    let end = Math.min(quantities[index + 1]?.start ?? words.length, nextProduct?.start ?? words.length);
+    for (let offset = start; offset < end; offset++) {
+      const word = words[offset].key;
+      if (endOfProductName.has(word) || prepAction(word)) { end = offset; break; }
+    }
+    while (end > start && /^(?:ve|da|de)$/u.test(words[end - 1].key)) end--;
+    if (end <= start) continue;
+
+    const nameWords = [];
+    const modifiers = [];
+    const modifierIndices = [];
+    for (let offset = start; offset < end; offset++) {
+      const option = suffixOption(words[offset]);
+      if (option) {
+        modifiers.push(option);
+        modifierIndices.push(offset);
+      } else {
+        nameWords.push(words[offset].raw);
+      }
+    }
+    const name = nameWords.join(' ');
+    const normalizedName = searchable(name);
+    const topic = bestRule(normalizedName, topics) ?? bestRule(normalizedName, generalTopics);
+    if (!name || reportWords.test(normalizedName) || (topic && topic[0] !== orderTopic[0])) continue;
+    if (!inOrderContext && !unit && !looksLikeList && (quantity.start !== 0 || nameWords.length > 5 || end !== words.length)) continue;
+
+    extra.push({ name, start, end, quantity, unit, modifiers, modifierIndices });
+  }
+  return known.filter(product => product.quantity || !extra.some(item => item.start <= product.start && item.end >= product.end))
+    .concat(extra).sort((first, second) => first.start - second.start);
 }
 
 function prepAction(word) {
@@ -451,19 +508,20 @@ function appendOptions(order, options) {
   }
 }
 
-function parseOrderPart(body, explicit, items) {
+function parseOrderPart(body, explicit, items, sentenceHasOrder) {
   const words = orderWords(body);
   if (!words.length) return false;
   const text = searchable(body);
   if (score(text, pastOrderTerms) || classifyType(text) === types.complaint) return false;
-  const products = menuMatches(words);
-  const options = prepOptions(words, products);
   const latestOrders = [];
   for (let index = items.length - 1; index >= 0 && items[index].order; index--) {
     latestOrders.push(items[index].order);
   }
 
   const request = score(text, requestTerms);
+  const known = menuMatches(words);
+  const products = addUnlistedProducts(words, known, explicit || request || sentenceHasOrder || latestOrders.length > 0);
+  const options = prepOptions(words, products);
   const productNumber = products.some(product => product.quantity);
   const plainProduct = products.length === 1 && products[0].end === words.length && products[0].start === 0;
   const hasOrderCue = explicit || request || productNumber || options.length || plainProduct || products.some(product => product.modifiers.length)
