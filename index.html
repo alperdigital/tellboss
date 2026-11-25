@@ -3,38 +3,48 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f4f5f2">
+  <meta name="theme-color" content="#f5f6f9">
   <title>Sorun / Şikayet / Öneri · Tellboss</title>
   <style>
-    :root { color-scheme: light; font-family: 'Segoe UI', system-ui, sans-serif; color: #19231e; background: #f4f5f2; }
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; color: #171820; background: #f5f6f9; }
     *, *::before, *::after { box-sizing: border-box; }
-    body { min-height: 100vh; min-height: 100svh; margin: 0; display: grid; place-items: center; padding: 24px 18px; }
-    main { width: min(100%, 560px); }
-    h1 { margin: 0 0 20px; font-size: clamp(1.55rem, 5.7vw, 2.45rem); font-weight: 720; letter-spacing: -.064em; line-height: 1.12; }
-    h1 span { color: #67786b; font-weight: 450; }
+    body { min-height: 100vh; min-height: 100svh; margin: 0; display: grid; place-items: center; padding: 32px 16px; background: radial-gradient(ellipse at 50% 6%, #e9eefc 0%, transparent 60%), #f5f6f9; }
+    main { width: min(100%, 608px); padding: clamp(22px, 5vw, 42px); border: 1px solid #fff; border-radius: 34px; background: #ffffffed; box-shadow: 0 20px 70px #18284912, 0 2px 8px #18284908; }
+    h1 { margin: 0 0 26px; text-align: center; font-size: clamp(1.6rem, 6vw, 2.85rem); font-weight: 720; letter-spacing: -.065em; line-height: 1.12; }
+    h1 span { color: #72778a; font-weight: 430; }
     form { margin: 0; }
-    .editor { position: relative; border: 1px solid #c9d1c9; border-radius: 23px; background: #fff; box-shadow: 0 7px 24px #18291f08; }
-    .editor:focus-within { border-color: #54866a; box-shadow: 0 0 0 3px #6b9c7d26; }
-    textarea { display: block; box-sizing: border-box; width: 100%; min-height: 172px; padding: 19px 91px 18px 18px; border: 0; border-radius: inherit; background: transparent; color: inherit; font: inherit; font-size: 1rem; line-height: 1.55; resize: vertical; }
+    .editor { position: relative; border: 1px solid #dfe2e9; border-radius: 22px; background: #f7f8fb; transition: border-color .16s ease, box-shadow .16s ease; }
+    .editor:focus-within { border-color: #7195d6; box-shadow: 0 0 0 3px #457bda1c; }
+    textarea { display: block; width: 100%; min-height: 172px; padding: 19px 75px 18px 18px; border: 0; border-radius: inherit; background: transparent; color: inherit; font: inherit; font-size: 1rem; line-height: 1.55; resize: vertical; }
+    .editor:has(.mic[aria-expanded="true"]) textarea { min-height: 242px; }
     textarea:focus { outline: none; }
-    textarea::placeholder { color: #56655a; opacity: 1; }
+    textarea::placeholder { color: #626878; opacity: 1; }
     button { font: inherit; cursor: pointer; }
-    button:focus-visible { outline: 3px solid #427a5c; outline-offset: 4px; }
-    .mic { position: absolute; right: 15px; top: 15px; display: grid; place-items: center; width: 56px; height: 56px; border: 0; border-radius: 50%; background: #c8f3d2; color: #17472c; box-shadow: inset 0 0 0 1px #a9e3b6; transition: background .16s ease, transform .16s ease; }
-    .mic:hover { background: #a9eeb9; transform: translateY(-1px); }
-    .mic[aria-expanded="true"] { background: #a9eeb9; }
+    button:focus-visible { outline: 3px solid #175ac0; outline-offset: 4px; }
+    .mic-anchor { position: absolute; top: 12px; right: 12px; z-index: 1; }
+    .mic { display: grid; place-items: center; width: 50px; height: 50px; border: 1px solid #c9daf9; border-radius: 50%; background: #e7f0ff; color: #1551ae; transition: background .16s ease; }
+    .mic:hover, .mic[aria-expanded="true"] { background: #d6e6ff; }
     .mic svg { display: block; }
-    .send { width: 100%; min-height: 53px; margin-top: 12px; padding: 10px 16px; border: 0; border-radius: 16px; background: #192820; color: #fff; font-weight: 700; }
-    .send:hover { background: #2b4737; }
-    .message { margin: 10px 2px 0; color: #3f574b; font-size: .9rem; line-height: 1.45; }
-    .dictation-help { margin-top: 8px; padding: 11px 14px; border: 1px solid #d3e7d7; border-radius: 14px; background: #eef7ef; color: #294437; font-size: .875rem; line-height: 1.45; }
-    .dictation-help p { margin: 0; }
-    .dictation-help p + p { margin-top: 5px; }
+    .dictation-help { position: absolute; top: calc(100% + 12px); right: 0; width: min(19.5rem, calc(100vw - 62px)); padding: 14px 16px; border: 1px solid #dce1ec; border-radius: 17px; background: #fff; box-shadow: 0 12px 36px #192d5529; color: #444b60; font-size: .875rem; line-height: 1.48; transform-origin: top right; animation: reveal-help .17s ease-out both; }
+    .dictation-help::before { content: ''; position: absolute; top: -6px; right: 19px; width: 11px; height: 11px; border-top: 1px solid #dce1ec; border-left: 1px solid #dce1ec; border-radius: 2px 0 0; background: #fff; transform: rotate(45deg); }
+    .dictation-help p { position: relative; margin: 0; }
+    .dictation-help p + p { margin-top: 8px; }
+    .dictation-help strong, #dictation-instruction { color: #1c2438; font-weight: 690; }
+    .send { position: relative; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 53px; margin-top: 15px; padding: 10px 18px; overflow: hidden; border: 0; border-radius: 999px; background: linear-gradient(162deg, #0966d7, #0757bf); box-shadow: 0 6px 14px #145dc634, inset 0 1px 0 #ffffff3d; color: #fff; font-weight: 680; transition: box-shadow .16s ease, transform .16s ease; }
+    .send:hover { box-shadow: 0 8px 19px #145dc647, inset 0 1px 0 #ffffff3d; }
+    .send:active { transform: scale(.985); }
+    .send-plane { flex: none; transition: transform .18s ease; }
+    .send:is(:hover, :focus-visible) .send-plane { transform: translate(3px, -2px); }
+    .send.is-sending .send-plane { animation: fly-plane .48s cubic-bezier(.22,.75,.34,1); }
+    .message { margin: 12px 2px 0; color: #49536a; font-size: .9rem; line-height: 1.45; }
     .error { color: #8a2928; }
     .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     [hidden] { display: none !important; }
-    @media (max-width: 600px) { body { align-items: start; padding-top: clamp(38px, 12svh, 94px); } }
-    @media (prefers-reduced-motion: reduce) { .mic { transition: none; } }
+    @keyframes reveal-help { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
+    @keyframes fly-plane { 0%, 100% { transform: none; opacity: 1; } 52% { transform: translate(30px, -21px); opacity: 0; } 53% { transform: translate(-12px, 9px); opacity: 0; } }
+    @media (max-width: 600px) { body { align-items: start; padding-top: clamp(24px, 8svh, 65px); } main { padding: 25px 0; background: transparent; border: 0; box-shadow: none; } h1 { margin-bottom: 21px; } }
+    @media (max-width: 400px) { .editor:has(.mic[aria-expanded="true"]) textarea { min-height: 268px; } }
+    @media (prefers-reduced-motion: reduce) { .editor, .mic, .send, .send-plane { transition: none; } .dictation-help, .send.is-sending .send-plane { animation: none; } .send:active, .send:is(:hover, :focus-visible) .send-plane { transform: none; } }
   </style>
 </head>
 <body>
@@ -44,16 +54,21 @@
       <div class="editor">
         <label class="sr-only" for="message">Mesajınız</label>
         <textarea id="message" rows="5" placeholder="Ne oldu?" required></textarea>
-        <button id="dictation" class="mic" type="button" aria-label="Telefon klavyesiyle sesli yaz" aria-controls="dictation-help" aria-expanded="false" title="Telefon klavyesiyle sesli yaz">
-          <svg aria-hidden="true" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1m-6 7v3m-3 0h6"/></svg>
-        </button>
+        <div class="mic-anchor" id="dictation-anchor">
+          <button id="dictation" class="mic" type="button" aria-label="Telefon klavyesiyle sesli yaz" aria-controls="dictation-help" aria-expanded="false">
+            <svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1m-6 7v3m-3 0h6"/></svg>
+          </button>
+          <div class="dictation-help" id="dictation-help" hidden>
+            <p id="dictation-instruction">Klavyedeki mikrofona dokunun.</p>
+            <p><strong>Görünmüyorsa (iPhone):</strong> Ayarlar → Genel → Klavye → Dikte’yi Etkinleştir.</p>
+            <p><strong>Görünmüyorsa (Android / Gboard):</strong> Klavyedeki Ayarlar → Sesle yazmayı aç.</p>
+          </div>
+        </div>
       </div>
-      <div class="dictation-help" id="dictation-help" hidden>
-        <p id="dictation-instruction">Klavyedeki mikrofona dokunun.</p>
-        <p><strong>Görünmüyorsa (iPhone):</strong> Ayarlar → Genel → Klavye → Dikte’yi Etkinleştir.</p>
-        <p><strong>Görünmüyorsa (Android / Gboard):</strong> Klavyedeki Ayarlar → Sesle yazmayı aç.</p>
-      </div>
-      <button class="send" type="submit">Gönder</button>
+      <button class="send" id="send" type="submit">
+        <span>Gönder</span>
+        <svg class="send-plane" id="send-plane" aria-hidden="true" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m21 3-6.5 18-3.9-7.6L3 9.5 21 3Zm0 0L10.6 13.4"/></svg>
+      </button>
       <p class="message" id="feedback" role="status" hidden></p>
     </form>
     <noscript><p class="message error">Göndermek için tarayıcınızda JavaScript’i etkinleştirin.</p></noscript>
@@ -144,7 +159,10 @@ const form = document.getElementById('complaint-form');
 const message = document.getElementById('message');
 const dictation = document.getElementById('dictation');
 const dictationHelp = document.getElementById('dictation-help');
+const dictationAnchor = document.getElementById('dictation-anchor');
 const feedback = document.getElementById('feedback');
+const send = document.getElementById('send');
+const sendPlane = document.getElementById('send-plane');
 
 function showFeedback(text, error = false) {
   feedback.textContent = text;
@@ -152,22 +170,40 @@ function showFeedback(text, error = false) {
   feedback.classList.toggle('error', error);
 }
 
-dictation.addEventListener('click', () => {
-  const opening = dictationHelp.hidden;
-  dictationHelp.hidden = !opening;
-  dictation.setAttribute('aria-expanded', String(opening));
-  if (opening) {
+function setDictationOpen(open) {
+  dictationHelp.hidden = !open;
+  dictation.setAttribute('aria-expanded', String(open));
+  if (open) {
     message.setAttribute('aria-describedby', 'dictation-instruction');
-    message.focus();
   } else {
     message.removeAttribute('aria-describedby');
+  }
+}
+
+dictation.addEventListener('click', () => {
+  const opening = dictationHelp.hidden;
+  setDictationOpen(opening);
+  if (opening) message.focus({ preventScroll: true });
+});
+
+document.addEventListener('click', event => {
+  if (!dictationHelp.hidden && !dictationAnchor.contains(event.target)) setDictationOpen(false);
+});
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !dictationHelp.hidden) {
+    setDictationOpen(false);
+    dictation.focus();
   }
 });
 
 message.addEventListener('input', () => {
   message.setCustomValidity('');
   showFeedback('');
+  if (!dictationHelp.hidden) setDictationOpen(false);
 });
+
+sendPlane.addEventListener('animationend', () => send.classList.remove('is-sending'));
 
 form.addEventListener('submit', event => {
   event.preventDefault();
@@ -180,6 +216,7 @@ form.addEventListener('submit', event => {
   }
 
   const draft = mailDraft(original);
+  send.classList.add('is-sending');
   showFeedback('Gönderimi e-posta uygulamanızda tamamlayın.');
   window.location.href = draft;
 });
