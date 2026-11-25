@@ -10,9 +10,12 @@
     *, *::before, *::after { box-sizing: border-box; }
     body { min-height: 100vh; min-height: 100svh; margin: 0; display: grid; place-items: center; padding: 32px 16px; background: radial-gradient(ellipse at 50% 6%, #e9eefc 0%, transparent 60%), #f5f6f9; }
     main { width: min(100%, 608px); padding: clamp(22px, 5vw, 42px); border: 1px solid #fff; border-radius: 34px; background: #ffffffed; box-shadow: 0 20px 70px #18284912, 0 2px 8px #18284908; }
-    h1 { margin: 0 0 26px; text-align: center; text-wrap: balance; font-size: clamp(1.5rem, 5vw, 2.5rem); font-weight: 720; letter-spacing: -.065em; line-height: 1.12; }
-    h1 span { color: #72778a; font-weight: 430; }
     form { margin: 0; }
+    .message-types { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin: 0 0 20px; padding: 5px; border: 1px solid #e2e6ef; border-radius: 999px; background: #eef1f7; }
+    .message-type { min-height: 44px; padding: 6px 4px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: #303a50; font-size: clamp(.875rem, 3.5vw, 1rem); font-weight: 680; line-height: 1.2; transition: background .16s ease, box-shadow .16s ease, color .16s ease; }
+    .message-type:hover { background: #ffffffa0; color: #174f9f; }
+    .message-type[aria-pressed="true"] { border-color: #d5e2f9; background: #fff; box-shadow: 0 2px 8px #25355717; color: #1456b2; }
+    .message-type:focus-visible { outline-offset: 1px; }
     .editor { position: relative; border: 1px solid #dfe2e9; border-radius: 22px; background: #f7f8fb; transition: border-color .16s ease, box-shadow .16s ease; }
     .editor:focus-within { border-color: #7195d6; box-shadow: 0 0 0 3px #457bda1c; }
     textarea { display: block; width: 100%; min-height: 172px; padding: 19px 75px 18px 18px; border: 0; border-radius: inherit; background: transparent; color: inherit; font: inherit; font-size: 1rem; line-height: 1.55; resize: vertical; }
@@ -42,15 +45,21 @@
     [hidden] { display: none !important; }
     @keyframes reveal-help { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: none; } }
     @keyframes fly-plane { 0%, 100% { transform: none; opacity: 1; } 52% { transform: translate(30px, -21px); opacity: 0; } 53% { transform: translate(-12px, 9px); opacity: 0; } }
-    @media (max-width: 600px) { body { align-items: start; padding-top: clamp(24px, 8svh, 65px); } main { padding: 25px 0; background: transparent; border: 0; box-shadow: none; } h1 { margin-bottom: 21px; } }
+    @media (max-width: 600px) { body { align-items: start; padding-top: clamp(24px, 8svh, 65px); } main { padding: 25px 0; background: transparent; border: 0; box-shadow: none; } .message-types { margin-bottom: 15px; } }
     @media (max-width: 400px) { .editor:has(.mic[aria-expanded="true"]) textarea { min-height: 268px; } }
-    @media (prefers-reduced-motion: reduce) { .editor, .mic, .send, .send-plane { transition: none; } .dictation-help, .send.is-sending .send-plane { animation: none; } .send:active, .send:is(:hover, :focus-visible) .send-plane { transform: none; } }
+    @media (prefers-reduced-motion: reduce) { .message-type, .editor, .mic, .send, .send-plane { transition: none; } .dictation-help, .send.is-sending .send-plane { animation: none; } .send:active, .send:is(:hover, :focus-visible) .send-plane { transform: none; } }
   </style>
 </head>
 <body>
   <main>
-    <h1>Sorun <span>/</span> Şikayet <span>/</span> Öneri <span>/</span> Sipariş</h1>
+    <h1 class="sr-only">Tellboss</h1>
     <form id="complaint-form">
+      <div class="message-types" role="group" aria-label="Bildirim türü">
+        <button class="message-type" type="button" data-message-type="problem" data-example="Örn. Odamdaki klima çalışmıyor." aria-controls="message" aria-pressed="false">Sorun</button>
+        <button class="message-type" type="button" data-message-type="complaint" data-example="Örn. Servis için uzun süre bekledik." aria-controls="message" aria-pressed="false">Şikayet</button>
+        <button class="message-type" type="button" data-message-type="suggestion" data-example="Örn. Kahvaltı biraz daha erken başlayabilir." aria-controls="message" aria-pressed="false">Öneri</button>
+        <button class="message-type" type="button" data-message-type="order" data-example="Örn. 2 çay ve 1 turşusuz sandviç." aria-controls="message" aria-pressed="false">Sipariş</button>
+      </div>
       <div class="editor">
         <label class="sr-only" for="message">Mesajınız</label>
         <textarea id="message" rows="5" placeholder="Mesajınızı yazın veya siparişinizi söyleyin." required></textarea>
@@ -246,9 +255,20 @@ function serializeItem(item, position) {
   };
 }
 
-function mailDraft(original) {
+function mailDraft(original, preferredType) {
   const items = splitItems(original);
   if (!items.length) items.push({ text: original, topic: otherTopic, type: types.problem });
+  const [first] = items;
+  if (preferredType && !first.declaredType && first.type === types.problem) {
+    if (preferredType === types.order) {
+      const orderItems = [];
+      if (first.topic === otherTopic && parseOrderPart(first.text, true, orderItems, false)) {
+        items.splice(0, 1, ...orderItems);
+      }
+    } else {
+      first.type = preferredType;
+    }
+  }
   const records = items.map((item, index) => serializeItem(item, index + 1));
   const subject = records.map(record => [record.code, ...record.fields
     .filter(([, value]) => value !== '' && value !== undefined)
@@ -629,6 +649,9 @@ const dictationAnchor = document.getElementById('dictation-anchor');
 const feedback = document.getElementById('feedback');
 const send = document.getElementById('send');
 const sendPlane = document.getElementById('send-plane');
+const messageTypes = document.querySelectorAll('[data-message-type]');
+const defaultPlaceholder = message.placeholder;
+let selectedMessageType;
 
 function showFeedback(text, error = false) {
   feedback.textContent = text;
@@ -671,6 +694,15 @@ message.addEventListener('input', () => {
 
 sendPlane.addEventListener('animationend', () => send.classList.remove('is-sending'));
 
+for (const button of messageTypes) {
+  button.addEventListener('click', () => {
+    selectedMessageType = selectedMessageType === button ? undefined : button;
+    for (const option of messageTypes) option.setAttribute('aria-pressed', String(option === selectedMessageType));
+    message.placeholder = selectedMessageType?.dataset.example ?? defaultPlaceholder;
+    message.focus();
+  });
+}
+
 form.addEventListener('submit', event => {
   event.preventDefault();
   const original = message.value;
@@ -681,7 +713,7 @@ form.addEventListener('submit', event => {
     return;
   }
 
-  const draft = mailDraft(original);
+  const draft = mailDraft(original, types[selectedMessageType?.dataset.messageType]);
   send.classList.add('is-sending');
   showFeedback('Göndermeden önce konu satırını e-posta uygulamanızda düzenleyebilirsiniz.');
   window.location.href = draft;
