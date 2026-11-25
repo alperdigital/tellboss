@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f5f2">
+  <title>Sorun / Şikayet / Öneri · Tellboss</title>
+  <style>
+    :root { color-scheme: light; font-family: 'Segoe UI', system-ui, sans-serif; color: #19231e; background: #f4f5f2; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { min-height: 100vh; min-height: 100svh; margin: 0; display: grid; place-items: center; padding: 24px 18px; }
+    main { width: min(100%, 560px); }
+    h1 { margin: 0 0 20px; font-size: clamp(1.55rem, 5.7vw, 2.45rem); font-weight: 720; letter-spacing: -.064em; line-height: 1.12; }
+    h1 span { color: #67786b; font-weight: 450; }
+    form { margin: 0; }
+    .editor { position: relative; border: 1px solid #c9d1c9; border-radius: 23px; background: #fff; box-shadow: 0 7px 24px #18291f08; }
+    .editor:focus-within { border-color: #54866a; box-shadow: 0 0 0 3px #6b9c7d26; }
+    textarea { display: block; box-sizing: border-box; width: 100%; min-height: 172px; padding: 19px 91px 18px 18px; border: 0; border-radius: inherit; background: transparent; color: inherit; font: inherit; font-size: 1rem; line-height: 1.55; resize: vertical; }
+    textarea:focus { outline: none; }
+    textarea::placeholder { color: #56655a; opacity: 1; }
+    button { font: inherit; cursor: pointer; }
+    button:focus-visible { outline: 3px solid #427a5c; outline-offset: 4px; }
+    .mic { position: absolute; right: 15px; top: 15px; display: grid; place-items: center; width: 56px; height: 56px; border: 0; border-radius: 50%; background: #c8f3d2; color: #17472c; box-shadow: inset 0 0 0 1px #a9e3b6; transition: background .16s ease, transform .16s ease; }
+    .mic:hover { background: #a9eeb9; transform: translateY(-1px); }
+    .mic svg { display: block; }
+    .send { width: 100%; min-height: 53px; margin-top: 12px; padding: 10px 16px; border: 0; border-radius: 16px; background: #192820; color: #fff; font-weight: 700; }
+    .send:hover { background: #2b4737; }
+    .message { margin: 10px 2px 0; color: #3f574b; font-size: .9rem; line-height: 1.45; }
+    .dictation-settings { margin: 4px 2px 0; color: #3f574b; font-size: .875rem; line-height: 1.45; }
+    .error { color: #8a2928; }
+    .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    [hidden] { display: none !important; }
+    @media (max-width: 600px) { body { align-items: start; padding-top: clamp(38px, 12svh, 94px); } }
+    @media (prefers-reduced-motion: reduce) { .mic { transition: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Sorun <span>/</span> Şikayet <span>/</span> Öneri</h1>
+    <form id="complaint-form">
+      <div class="editor">
+        <label class="sr-only" for="message">Mesajınız</label>
+        <textarea id="message" rows="5" placeholder="Ne oldu?" required></textarea>
+        <button id="dictation" class="mic" type="button" aria-label="Telefon klavyesiyle sesli yaz" aria-controls="dictation-help" aria-expanded="false" title="Telefon klavyesiyle sesli yaz">
+          <svg aria-hidden="true" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1m-6 7v3m-3 0h6"/></svg>
+        </button>
+      </div>
+      <div id="dictation-help" hidden>
+        <p class="message" id="dictation-instruction">Klavyedeki mikrofona dokunun.</p>
+        <p class="dictation-settings" id="ios-dictation"><strong>Görünmüyorsa (iPhone):</strong> Ayarlar → Genel → Klavye → Dikte’yi Etkinleştir.</p>
+        <p class="dictation-settings" id="android-dictation"><strong>Görünmüyorsa (Android / Gboard):</strong> Klavyedeki Ayarlar → Sesle yazmayı aç.</p>
+      </div>
+      <button class="send" type="submit">Gönder</button>
+      <p class="message" id="feedback" role="status" hidden></p>
+    </form>
+    <noscript><p class="message error">Göndermek için tarayıcınızda JavaScript’i etkinleştirin.</p></noscript>
+  </main>
+  <script>
+(() => {
+const emailAddress = 'alperdigital@icloud.com';
+
+const topics = [
+  ['08', 'Güvenlik ve sağlık', ['guvenlik*', 'tehlike*', 'yaralan*', 'yangin*', 'gaz kacag*', 'bayil*', 'zehirlen*']],
+  ['04', 'Temizlik ve hijyen', ['kirli*', 'temiz*', 'hijyen*', 'leke*', 'cop*']],
+  ['01', 'Ödeme ve ücret', ['hesap*', 'odeme*', 'ucret*', 'fatura*', 'iade*', 'pahali*', 'pos']],
+  ['07', 'Personel ve iletişim', ['personel*', 'calisan*', 'kaba*', 'hakaret*', 'garson*', 'resepsiyon*', 'ilgisiz*', 'musteri hizmet*']],
+  ['06', 'Sipariş ve teslimat', ['siparis*', 'teslimat*', 'kargo*', 'kurye*', 'paket*']],
+  ['05', 'Teknik sorun', ['ariza*', 'bozuk*', 'calismi*', 'klima*', 'internet*', 'uygulama*', 'elektrik*']],
+  ['03', 'Ürün ve hizmet kalitesi', ['urun*', 'yemek*', 'icecek*', 'kahve*', 'soguk*', 'bayat*', 'kalite*']],
+  ['02', 'Servis ve bekleme', ['bekle*', 'gecik*', 'yavas*', 'sira*', 'servis*']],
+  ['09', 'Ortam ve tesis', ['gurultu*', 'oda*', 'sicaklik*', 'masa*', 'havalandirma*', 'otopark*']],
+  ['10', 'Erişilebilirlik', ['engelli*', 'tekerlekli sandalye*', 'erisim*', 'rampa*', 'asansor*']],
+];
+const emotions = [
+  ['3', 'Endişe', ['endise*', 'kork*', 'panik*', 'kaygi*', 'tedirgin*']],
+  ['1', 'Öfke', ['sinirli*', 'ofke*', 'kizgin*', 'rezalet*', 'skandal*', 'kabul edilemez']],
+  ['2', 'Hayal kırıklığı veya üzüntü', ['hayal kiriklig*', 'uzgun*', 'uzuldum', 'memnun degil*', 'maalesef']],
+  ['4', 'Memnuniyet', ['tesekkur*', 'memnun kald*', 'harika*', 'begendim', 'cok iyi']],
+];
+
+function searchable(text) {
+  return ' ' + text.toLocaleLowerCase('tr')
+    .normalize('NFD').replace(/\p{M}/gu, '').replaceAll('ı', 'i')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ').trim() + ' ';
+}
+
+function score(text, expressions) {
+  return expressions.filter(expression => {
+    return expression.endsWith('*')
+      ? text.includes(' ' + expression.slice(0, -1))
+      : text.includes(' ' + expression + ' ');
+  }).length;
+}
+
+function bestMatch(text, rules, fallback) {
+  let bestScore = 0;
+  let code = fallback;
+  for (const [candidate, , expressions] of rules) {
+    const matches = score(text, expressions);
+    if (matches > bestScore) {
+      bestScore = matches;
+      code = candidate;
+    }
+  }
+  return code;
+}
+
+function checkDigit(digits) {
+  const sum = [...digits].reverse().reduce((total, digit, index) => {
+    const weighted = Number(digit) * (index % 2 === 0 ? 2 : 1);
+    return total + (weighted > 9 ? weighted - 9 : weighted);
+  }, 0);
+  return String((10 - sum % 10) % 10);
+}
+
+function makeTag(original) {
+  const text = searchable(original);
+  const urgencyText = text.replace(/ acil degil(?:dir)?(?= )/g, '');
+  const isCritical = score(urgencyText, ['yangin*', 'gaz kacag*', 'bayil*', 'zehirlen*', 'nefes alam*']);
+  const isUrgent = score(urgencyText, ['acil', 'acilen', 'hemen', 'derhal', 'bugun icinde']);
+  const urgency = isCritical ? '2' : isUrgent ? '1' : '0';
+  const emotion = bestMatch(text, emotions, '0');
+  const highIntensity = score(text, ['dayanilmaz*', 'rezalet*', 'skandal*', 'kesinlikle kabul edilemez', 'defalarca']);
+  const moderateIntensity = score(text, ['cok', 'tekrar', 'kabul edilemez', 'ciddi*', 'maalesef']);
+  const intensity = highIntensity || /[!?]{3,}/u.test(original) ? '3'
+    : moderateIntensity || emotion === '1' ? '2' : '1';
+  const suggestion = score(text, ['oneri*', 'tavsiye*', 'olsa iyi olur', 'iyilestir*']);
+  const complaint = score(text, ['sikayet*', 'memnun degil*', 'hayal kiriklig*', 'rezalet*', 'kabul edilemez', 'magdur*']);
+  const type = complaint ? '2' : suggestion && !isCritical ? '3' : '1';
+  const topic = bestMatch(text, topics, '00');
+  const digits = '1' + type + topic + intensity + emotion + urgency;
+  return 'tellboss' + digits + checkDigit(digits);
+}
+
+function mailDraft(original) {
+  const body = original.replace(/\r\n?|\n/g, '\r\n').toWellFormed();
+  return 'mailto:' + emailAddress + '?subject=' + makeTag(original) + '&body=' + encodeURIComponent(body);
+}
+
+const form = document.getElementById('complaint-form');
+const message = document.getElementById('message');
+const dictation = document.getElementById('dictation');
+const feedback = document.getElementById('feedback');
+
+const device = navigator.userAgent;
+const isAppleMobile = /iPhone|iPad|iPod/i.test(device) || (/Macintosh/i.test(device) && navigator.maxTouchPoints > 1);
+const isAndroid = /Android/i.test(device);
+document.getElementById('ios-dictation').hidden = isAndroid;
+document.getElementById('android-dictation').hidden = isAppleMobile;
+
+function showFeedback(text, error = false) {
+  feedback.textContent = text;
+  feedback.hidden = !text;
+  feedback.classList.toggle('error', error);
+}
+
+dictation.addEventListener('click', () => {
+  document.getElementById('dictation-help').hidden = false;
+  dictation.setAttribute('aria-expanded', 'true');
+  message.setAttribute('aria-describedby', 'dictation-instruction');
+  message.focus();
+});
+
+message.addEventListener('input', () => {
+  message.setCustomValidity('');
+  showFeedback('');
+});
+
+form.addEventListener('submit', event => {
+  event.preventDefault();
+  const original = message.value;
+
+  if (!original.trim()) {
+    message.setCustomValidity('Lütfen mesajınızı yazın.');
+    message.reportValidity();
+    return;
+  }
+
+  const draft = mailDraft(original);
+  showFeedback('Gönderimi e-posta uygulamanızda tamamlayın.');
+  window.location.href = draft;
+});
+
+})();
+</script>
+</body>
+</html>
