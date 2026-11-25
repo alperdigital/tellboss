@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f5f6f9">
-  <title>Sorun / Şikayet / Öneri · Tellboss</title>
+  <title>Sorun / Şikayet / Öneri / Sipariş · Tellboss</title>
   <style>
     :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; color: #171820; background: #f5f6f9; }
     *, *::before, *::after { box-sizing: border-box; }
     body { min-height: 100vh; min-height: 100svh; margin: 0; display: grid; place-items: center; padding: 32px 16px; background: radial-gradient(ellipse at 50% 6%, #e9eefc 0%, transparent 60%), #f5f6f9; }
     main { width: min(100%, 608px); padding: clamp(22px, 5vw, 42px); border: 1px solid #fff; border-radius: 34px; background: #ffffffed; box-shadow: 0 20px 70px #18284912, 0 2px 8px #18284908; }
-    h1 { margin: 0 0 26px; text-align: center; font-size: clamp(1.6rem, 6vw, 2.85rem); font-weight: 720; letter-spacing: -.065em; line-height: 1.12; }
+    h1 { margin: 0 0 26px; text-align: center; text-wrap: balance; font-size: clamp(1.5rem, 5vw, 2.5rem); font-weight: 720; letter-spacing: -.065em; line-height: 1.12; }
     h1 span { color: #72778a; font-weight: 430; }
     form { margin: 0; }
     .editor { position: relative; border: 1px solid #dfe2e9; border-radius: 22px; background: #f7f8fb; transition: border-color .16s ease, box-shadow .16s ease; }
@@ -49,11 +49,11 @@
 </head>
 <body>
   <main>
-    <h1>Sorun <span>/</span> Şikayet <span>/</span> Öneri</h1>
+    <h1>Sorun <span>/</span> Şikayet <span>/</span> Öneri <span>/</span> Sipariş</h1>
     <form id="complaint-form">
       <div class="editor">
         <label class="sr-only" for="message">Mesajınız</label>
-        <textarea id="message" rows="5" placeholder="Ne oldu?" required></textarea>
+        <textarea id="message" rows="5" placeholder="Mesajınızı yazın veya siparişinizi söyleyin." required></textarea>
         <div class="mic-anchor" id="dictation-anchor">
           <button id="dictation" class="mic" type="button" aria-label="Telefon klavyesiyle sesli yaz" aria-controls="dictation-help" aria-expanded="false">
             <svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1m-6 7v3m-3 0h6"/></svg>
@@ -101,6 +101,8 @@ const generalTopics = [
   ['090', 'Ortam ve tesis', 'Misafir ilişkileri', ['havalandirma*', 'otopark*', 'tesis*', 'koridor*']],
 ];
 const otherTopic = ['000', 'Genel konu', 'Misafir ilişkileri'];
+const orderTopic = ['031', 'Yiyecek ve içecek', 'Kafeterya'];
+const orderNoteTopic = ['032', 'Sipariş notu', 'Kafeterya'];
 const emotions = [
   ['3', 'Endişe', ['endise*', 'kork*', 'panik*', 'kaygi*', 'tedirgin*']],
   ['1', 'Öfke', ['sinirli*', 'ofke*', 'kizgin*', 'rezalet*', 'skandal*', 'kabul edilemez']],
@@ -112,6 +114,7 @@ const types = {
   problem: ['1', 'Sorun'],
   complaint: ['2', 'Şikayet'],
   suggestion: ['3', 'Öneri'],
+  order: ['4', 'Sipariş'],
 };
 const suggestionTerms = ['oneri*', 'tavsiye*', 'olsa iyi olur', 'iyilestir*'];
 const complaintTerms = ['sikayet*', 'memnun degil*', 'memnun kalmadi*', 'hayal kiriklig*', 'rezalet*', 'kabul edilemez', 'magdur*', 'berbat*', 'kotu', 'kotuy*', 'bayat*', 'kirli*'];
@@ -156,7 +159,10 @@ function classifyType(text) {
 }
 
 function classifyTopic(text) {
-  return bestRule(text, topics) ?? bestRule(text, generalTopics) ?? otherTopic;
+  const topic = bestRule(text, topics);
+  if (topic) return topic;
+  if (menuMatches(orderWords(text)).length) return orderTopic;
+  return bestRule(text, generalTopics) ?? otherTopic;
 }
 
 function splitItems(original) {
@@ -164,23 +170,29 @@ function splitItems(original) {
   const sentences = original.split(/\s*[;\r\n]+\s*|(?<=[.!?])\s+/u);
   for (const [sentenceIndex, sentence] of sentences.entries()) {
     let declaredType;
-    const fragments = sentence.split(/\s*,\s*|\s+(?:ve|ama|ancak|fakat|ayrıca|bir de|öte yandan|bunun yanında)\s+/iu);
+    const fragments = sentence.split(/\s*,\s*|\s+(?:ama|ancak|fakat|ayrıca|bir de|öte yandan|bunun yanında)\s+/iu)
+      .flatMap(splitOrderConjunctions);
     for (const fragment of fragments) {
       const part = fragment.trim().replace(/^(?:[-•*]|\d+[.)])\s+/u, '');
       if (!/[\p{L}]/u.test(part)) continue;
 
-      const label = part.match(/^(?:\d+\s+)?(şik[aâ]yet(?:lerim|im|ler)?|öneri(?:lerim|m|ler)?|sorun(?:larım|um|lar)?)(?:\s+(?:var|şu))?\s*[:–—-]\s*/iu)
+      const label = part.match(/^(?:\d+\s+)?(şik[aâ]yet(?:lerim|im|ler)?|öneri(?:lerim|m|ler)?|sorun(?:larım|um|lar)?|sipariş(?:im|lerim)?)(?:\s+(?:var|şu))?\s*[:–—-]\s*/iu)
         ?? part.match(/^(şik[aâ]yetim|önerim|sorunum)(?:\s+|$)/iu);
       if (label) {
         const marker = searchable(label[1]).trim();
         declaredType = marker.startsWith('sikayet') ? types.complaint
-          : marker.startsWith('oneri') ? types.suggestion : types.problem;
+          : marker.startsWith('oneri') ? types.suggestion
+            : marker.startsWith('siparis') ? types.order : types.problem;
       }
 
       const body = label ? part.slice(label[0].length) : part;
       const normalized = withoutNegatedAlerts(searchable(body));
+      const explicitOrder = declaredType === types.order;
+      if (explicitOrder && !body) continue;
+      if ((!label || explicitOrder) && parseOrderPart(body, explicitOrder, items)) continue;
       const topic = classifyTopic(normalized);
-      const inferredType = declaredType ?? classifyType(normalized);
+      const declaredReportType = explicitOrder ? undefined : declaredType;
+      const inferredType = declaredReportType ?? classifyType(normalized);
       const previous = items.at(-1);
       const hasSeparateType = (label && previous?.text)
         || (inferredType === types.suggestion && previous?.type !== types.suggestion)
@@ -189,8 +201,8 @@ function splitItems(original) {
       const hasSeparateTopic = previous && topic !== otherTopic && previous.topic !== otherTopic
         && (topic !== previous.topic || previous.sentenceIndex !== sentenceIndex) && !isContinuation;
 
-      if (!previous || hasSeparateType || hasSeparateTopic) {
-        items.push({ text: body, topic, type: inferredType, declaredType, sentenceIndex });
+      if (!previous || previous.order || hasSeparateType || hasSeparateTopic) {
+        items.push({ text: body, topic, type: inferredType, declaredType: declaredReportType, sentenceIndex });
         continue;
       }
 
@@ -208,14 +220,17 @@ function summarizeItem(item, position) {
   const urgencyText = withoutNegatedAlerts(text);
   const urgency = score(urgencyText, criticalTerms) ? 'Kritik'
     : score(urgencyText, ['acil', 'acilen', 'hemen', 'derhal', 'bugun icinde']) ? 'Acil' : '';
+  const [topicCode, topicName, department] = item.topic;
+  const [typeCode, typeName] = item.type;
+  const code = typeCode + topicCode + String(position).padStart(2, '0');
+  if (item.order) {
+    return [urgency, typeName, department, ...orderSummary(item.order), 'Kod ' + code].filter(Boolean).join(' · ');
+  }
   const emotion = bestRule(text, emotions);
   const highIntensity = score(text, ['dayanilmaz*', 'rezalet*', 'skandal*', 'kesinlikle kabul edilemez', 'defalarca']);
   const moderateIntensity = score(text, ['cok', 'tekrar', 'kabul edilemez', 'ciddi*', 'maalesef']);
   const intensity = highIntensity || /[!?]{3,}/u.test(item.text) ? 'Yüksek yoğunluk'
     : moderateIntensity || emotion?.[0] === '1' ? 'Orta yoğunluk' : 'Düşük yoğunluk';
-  const [topicCode, topicName, department] = item.topic;
-  const [typeCode, typeName] = item.type;
-  const code = typeCode + topicCode + String(position).padStart(2, '0');
   return [urgency, typeName, department, topicName, intensity, emotion?.[1], 'Kod ' + code]
     .filter(Boolean).join(' · ');
 }
@@ -232,6 +247,262 @@ function mailDraft(original) {
   const body = original.replace(/\r\n?|\n/g, '\r\n').toWellFormed();
   return 'mailto:' + emailAddress + '?subject=' + encodeURIComponent(makeSubject(original))
     + '&body=' + encodeURIComponent(body);
+}
+
+const menu = [
+  ['Türk kahvesi', /^turk kahves(?:i|ini|ine)$/u],
+  ['Filtre kahve', /^filtre kahve(?:yi|ye)?$/u],
+  ['Meyve suyu', /^meyve suyu(?:nu|na)?$/u],
+  ['Sıcak çikolata', /^sicak cikolata(?:yi|ya)?$/u],
+  ['Kulüp sandviç', /^kulup sandvic(?:i|e|in|te)?$/u],
+  ['Çay', /^cay(?:i|a|dan|lar|lari)?$/u],
+  ['Kahve', /^(?:kahve(?:yi|ye|ler)?|espresso|latte|cappuccino|americano)$/u],
+  ['Sandviç', /^sandvic(?:i|e|in|te|ten|ler|leri)?$/u],
+  ['Tost', /^tost(?:u|a|un|ta|lar)?$/u],
+  ['Su', /^su(?:yu|ya|yun)?$/u],
+  ['Soda', /^soda(?:yi|ya)?$/u],
+  ['Limonata', /^limonata(?:yi|ya)?$/u],
+  ['Ayran', /^ayran(?:i|a)?$/u],
+  ['Makarna', /^makarna(?:yi|ya)?$/u],
+  ['Çorba', /^corba(?:yi|ya)?$/u],
+  ['Salata', /^salata(?:yi|ya)?$/u],
+  ['Burger', /^(?:hamburger|burger)(?:i|e)?$/u],
+  ['Pizza', /^pizza(?:yi|ya)?$/u],
+  ['Döner', /^doner(?:i|e)?$/u],
+  ['Mantı', /^manti(?:yi|ya)?$/u],
+  ['Kruvasan', /^kruvasan(?:i|a)?$/u],
+  ['Dondurma', /^dondurma(?:yi|ya)?$/u],
+  ['Tiramisu', /^tiramisu(?:yu|ya)?$/u],
+];
+const units = new Set(['adet', 'tane', 'porsiyon', 'bardak', 'fincan', 'sise']);
+const descriptions = new Set(['buyuk', 'orta', 'kucuk', 'sade', 'demli', 'acik', 'sicak', 'soguk', 'duble']);
+const optionScope = new Set(['icinde', 'icine', 'icinden', 'icini', 'uzerine', 'uzerinde', 'yanina', 'yaninda', 'lutfen', 'da', 'de', 'biraz', 'ekstra', 'ilave']);
+const ignoredOptions = new Set(['acil', 'cabuk', 'hemen', 'hazir', 'tesekkurler', 'sicak', 'soguk']);
+const numberWords = new Map([
+  ['bir', 1], ['iki', 2], ['uc', 3], ['dort', 4], ['bes', 5], ['alti', 6], ['yedi', 7], ['sekiz', 8], ['dokuz', 9],
+  ['on', 10], ['yirmi', 20], ['otuz', 30], ['kirk', 40], ['elli', 50], ['altmis', 60], ['yetmis', 70], ['seksen', 80], ['doksan', 90],
+]);
+const requestTerms = ['istiyorum', 'istiyoruz', 'alabilir miyim', 'alabilir miyiz', 'alalim', 'alabilirsem', 'getirin', 'getirir misiniz', 'getirebilir misiniz', 'verir misiniz', 'rica ediyorum', 'rica ederim', 'siparis vermek istiyorum'];
+const pastOrderTerms = ['gelmedi*', 'yanlis', 'eksik', 'fazla geldi', 'soguk geldi', 'soguktu', 'gec geldi', 'aldim', 'aldik', 'istedim', 'istedik', 'demistim', 'siparis ettim', 'siparis verdim', 'siparis verdik', 'iade*', 'gecikti*'];
+const foodOptions = new Set(['tursu', 'sogan', 'kasar', 'ketcap', 'mayonez', 'domates', 'marul', 'hardal']);
+const drinks = new Set(['Çay', 'Kahve', 'Türk kahvesi', 'Filtre kahve', 'Meyve suyu', 'Sıcak çikolata', 'Su', 'Soda', 'Limonata', 'Ayran']);
+
+function orderWords(text) {
+  return [...text.matchAll(/[\p{L}\p{M}\p{N}]+/gu)].map(([raw]) => ({ raw, key: searchable(raw).trim() }));
+}
+
+function quantityAt(words, index) {
+  const word = words[index]?.key;
+  if (!word) return;
+  if (/^[1-9]\d{0,2}$/u.test(word)) return { value: Number(word), start: index };
+  if (word === 'yarim') return { value: '½', start: index };
+  const amount = numberWords.get(word);
+  if (amount === undefined) return;
+  const previous = numberWords.get(words[index - 1]?.key);
+  if (amount < 10 && previous >= 10) return { value: previous + amount, start: index - 1 };
+  return { value: amount, start: index };
+}
+
+function suffixOption(word) {
+  const excluded = word.key.match(/^(.{2,})(?:siz|suz)$/u);
+  if (excluded && !/^(?:eksik|tad|tat|gerek|ses|istek)$/u.test(excluded[1])) {
+    return { kind: 'Hariç', value: word.raw.slice(0, -3) };
+  }
+  const included = word.key.match(/^(sucuk|peynir|kasar|sut|seker|tavuk|buz|domates|zeytin|aci)(?:li|lu)$/u);
+  if (included) return { kind: 'İçerik', value: word.raw.slice(0, -2) };
+}
+
+function menuMatches(words) {
+  const found = [];
+  for (let index = 0; index < words.length; index++) {
+    const pair = words.slice(index, index + 2).map(word => word.key).join(' ');
+    const double = menu.find(([, pattern]) => pair.includes(' ') && pattern.test(pair));
+    const single = double ?? menu.find(([, pattern]) => pattern.test(words[index].key));
+    if (!single) continue;
+
+    const end = index + (double ? 2 : 1);
+    let before = index - 1;
+    const modifiers = [];
+    const modifierIndices = [];
+    const descriptionsFound = [];
+    while (before >= 0) {
+      const option = suffixOption(words[before]);
+      if (option) {
+        modifiers.unshift(option);
+        modifierIndices.push(before);
+      } else if (descriptions.has(words[before].key)) {
+        descriptionsFound.unshift(words[before].raw);
+      } else break;
+      before--;
+    }
+    let unit = units.has(words[before]?.key) ? words[before--].raw : '';
+    let quantity = quantityAt(words, before);
+    if (!quantity && (end === words.length - 1 || units.has(words[end + 1]?.key))) {
+      quantity = quantityAt(words, end);
+      if (quantity && units.has(words[end + 1]?.key)) unit = words[end + 1].raw;
+    }
+    if (!found.length && quantity?.start < index) {
+      for (let offset = quantity.start - 1; offset >= 0; offset--) {
+        const option = suffixOption(words[offset]);
+        if (!option) break;
+        modifiers.unshift(option);
+        modifierIndices.push(offset);
+      }
+    }
+    const catalogName = single[0] === 'Kahve' && !words[index].key.startsWith('kahve')
+      ? words[index].raw
+      : single[0];
+    const displayName = [...descriptionsFound, catalogName].join(' ');
+    found.push({ name: catalogName, displayName, start: index, end, quantity, unit, modifiers, modifierIndices });
+    if (double) index++;
+  }
+  return found;
+}
+
+function prepAction(word) {
+  if (/^(?:koymayin|koyma|eklemeyin|ekleme|olmasin|olmadan|haric|istemiyorum|istemiyoruz|cikarin|cikar|koyulmasin|konmasin)$/u.test(word)) return 'Hariç';
+  if (/^(?:koyun|koy|ekleyin|ekle|olsun)$/u.test(word)) return 'İçerik';
+}
+
+function splitOrderConjunctions(chunk) {
+  const fragments = [];
+  for (const part of chunk.split(/\s+ve\s+/iu)) {
+    const left = fragments.at(-1);
+    const rightWords = orderWords(part);
+    const leftWords = left ? orderWords(left) : [];
+    const leftTopic = left ? classifyTopic(searchable(left)) : otherTopic;
+    const continuesIngredients = left && rightWords.some(word => prepAction(word.key))
+      && !menuMatches(rightWords).length && !leftWords.some(word => prepAction(word.key))
+      && (leftTopic === otherTopic || leftTopic === orderTopic || leftWords.some(word => word.key === 'icine'));
+    if (continuesIngredients) fragments[fragments.length - 1] = left + ' ve ' + part;
+    else fragments.push(part);
+  }
+  return fragments;
+}
+
+function prepOptions(words, products) {
+  const result = [];
+  let lastAction = -1;
+  for (const [index, word] of words.entries()) {
+    const action = prepAction(word.key) ?? (word.key === 'edin' && words[index - 1]?.key === 'ilave' ? 'İçerik' : undefined);
+    if (action) {
+      const before = products.findLast(product => product.end <= index);
+      const start = Math.max(lastAction + 1, before?.end ?? 0);
+      const ingredient = words.slice(start, index)
+        .filter(item => !optionScope.has(item.key) && !ignoredOptions.has(item.key) && !suffixOption(item));
+      if (ingredient.length) {
+        result.push({ kind: action, value: ingredient.map(item => item.raw).join(' '), target: before?.name });
+      }
+      lastAction = index;
+      continue;
+    }
+
+    if (word.key === 'ekstra' && index + 1 < words.length && !products.some(product => product.start === index + 1)
+      && !words.slice(index + 1).some(item => prepAction(item.key) || item.key === 'edin')) {
+      const before = products.findLast(product => product.end <= index);
+      result.push({ kind: 'İçerik', value: words[index + 1].raw, target: before?.name });
+      continue;
+    }
+
+    const option = suffixOption(word);
+    if (!option) continue;
+    if (products.some(product => product.modifierIndices.includes(index))) continue;
+    const before = products.findLast(product => product.end <= index);
+    result.push({ ...option, target: before?.name });
+  }
+
+  return result;
+}
+
+function appendOptions(order, options) {
+  for (const option of options) {
+    if (!order.modifiers.some(existing => existing.kind === option.kind && searchable(existing.value) === searchable(option.value))) {
+      order.modifiers.push({ kind: option.kind, value: option.value });
+    }
+  }
+}
+
+function parseOrderPart(body, explicit, items) {
+  const words = orderWords(body);
+  if (!words.length) return false;
+  const text = searchable(body);
+  if (score(text, pastOrderTerms) || classifyType(text) === types.complaint) return false;
+  const products = menuMatches(words);
+  const options = prepOptions(words, products);
+  const latestOrders = [];
+  for (let index = items.length - 1; index >= 0 && items[index].order; index--) {
+    latestOrders.push(items[index].order);
+  }
+
+  const request = score(text, requestTerms);
+  const productNumber = products.some(product => product.quantity);
+  const plainProduct = products.length === 1 && products[0].end === words.length && products[0].start === 0;
+  const hasOrderCue = explicit || request || productNumber || options.length || plainProduct || products.some(product => product.modifiers.length)
+    || (products.length && words.some(word => prepAction(word.key) === 'İçerik'));
+  if (products.length && words.some(word => prepAction(word.key) === 'Hariç') && !options.length && !products.some(product => product.modifiers.length)) {
+    for (const product of products) {
+      const removed = latestOrders.filter(order => order.name === product.name);
+      for (const order of removed) {
+        const index = items.findIndex(item => item.order === order);
+        items.splice(index, 1);
+      }
+    }
+    const order = { name: 'Sipariş notu', modifiers: products.map(product => ({ kind: 'Hariç', value: product.name })) };
+    items.push({ text: body, type: types.order, topic: orderNoteTopic, order });
+    return true;
+  }
+  if (!hasOrderCue) return false;
+
+  for (const product of products) {
+    const existing = latestOrders.find(order => order.name === product.name);
+    const isModification = !product.quantity && !request && options.some(option => option.target === product.name);
+    if (existing && isModification) continue;
+    const order = { name: product.name, displayName: product.displayName, quantity: product.quantity?.value, unit: product.unit, modifiers: product.modifiers };
+    items.push({ text: body, type: types.order, topic: orderTopic, order });
+    latestOrders.unshift(order);
+  }
+
+  if (options.length) {
+    let note;
+    for (const option of options) {
+      const compatible = foodOptions.has(searchable(option.value).trim())
+        ? latestOrders.filter(order => !drinks.has(order.name) && order.name !== 'Sipariş notu') : [];
+      const candidates = option.target ? latestOrders.filter(order => order.name === option.target)
+        : compatible.length ? compatible : latestOrders;
+      if (candidates.length === 1) {
+        appendOptions(candidates[0], [option]);
+      } else {
+        if (!note) {
+          note = { name: 'Sipariş notu', modifiers: [] };
+          items.push({ text: body, type: types.order, topic: orderNoteTopic, order: note });
+        }
+        appendOptions(note, [option]);
+      }
+    }
+    return true;
+  }
+
+  if (products.length) return true;
+  if (!explicit) return false;
+  const topic = classifyTopic(text);
+  if (topic !== otherTopic && topic[0] !== orderTopic[0]) return false;
+  const firstQuantity = quantityAt(words, 1);
+  const quantity = firstQuantity?.start === 0 ? firstQuantity : quantityAt(words, 0);
+  const count = quantity && (quantity.start === 0) ? quantity.value : undefined;
+  const afterCount = count ? (firstQuantity?.start === 0 ? 2 : 1) : 0;
+  const unit = units.has(words[afterCount]?.key) ? words[afterCount].raw : '';
+  const name = words.slice(afterCount + (unit ? 1 : 0)).map(word => word.raw).join(' ');
+  const order = { name: name || 'Sipariş talebi', quantity: count, unit, modifiers: [] };
+  items.push({ text: body, type: types.order, topic: orderTopic, order });
+  return true;
+}
+
+function orderSummary(order) {
+  const product = order.displayName ?? order.name;
+  const name = order.quantity
+    ? order.quantity + (order.unit ? ' ' + order.unit + ' ' : ' × ') + product
+    : product;
+  return [name, ...order.modifiers.map(option => option.kind + ' ' + option.value)];
 }
 
 const form = document.getElementById('complaint-form');
