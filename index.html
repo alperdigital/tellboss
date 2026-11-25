@@ -110,49 +110,44 @@ function score(text, expressions) {
   }).length;
 }
 
-function bestMatch(text, rules, fallback) {
-  let bestScore = 0;
-  let code = fallback;
-  for (const [candidate, , expressions] of rules) {
-    const matches = score(text, expressions);
-    if (matches > bestScore) {
-      bestScore = matches;
-      code = candidate;
-    }
-  }
-  return code;
+function matchedRules(text, rules) {
+  return rules
+    .map(rule => ({ rule, matches: score(text, rule[2]) }))
+    .filter(result => result.matches > 0)
+    .sort((first, second) => second.matches - first.matches)
+    .map(result => result.rule);
 }
 
-function checkDigit(digits) {
-  const sum = [...digits].reverse().reduce((total, digit, index) => {
-    const weighted = Number(digit) * (index % 2 === 0 ? 2 : 1);
-    return total + (weighted > 9 ? weighted - 9 : weighted);
-  }, 0);
-  return String((10 - sum % 10) % 10);
-}
-
-function makeTag(original) {
+function makeSubject(original) {
   const text = searchable(original);
   const urgencyText = text.replace(/ acil degil(?:dir)?(?= )/g, '');
   const isCritical = score(urgencyText, ['yangin*', 'gaz kacag*', 'bayil*', 'zehirlen*', 'nefes alam*']);
   const isUrgent = score(urgencyText, ['acil', 'acilen', 'hemen', 'derhal', 'bugun icinde']);
-  const urgency = isCritical ? '2' : isUrgent ? '1' : '0';
-  const emotion = bestMatch(text, emotions, '0');
+  const urgency = isCritical ? 'Kritik' : isUrgent ? 'Acil' : '';
+  const [emotion] = matchedRules(text, emotions);
   const highIntensity = score(text, ['dayanilmaz*', 'rezalet*', 'skandal*', 'kesinlikle kabul edilemez', 'defalarca']);
   const moderateIntensity = score(text, ['cok', 'tekrar', 'kabul edilemez', 'ciddi*', 'maalesef']);
-  const intensity = highIntensity || /[!?]{3,}/u.test(original) ? '3'
-    : moderateIntensity || emotion === '1' ? '2' : '1';
+  const intensity = highIntensity || /[!?]{3,}/u.test(original) ? 'Yüksek yoğunluk'
+    : moderateIntensity || emotion?.[0] === '1' ? 'Orta yoğunluk' : 'Düşük yoğunluk';
   const suggestion = score(text, ['oneri*', 'tavsiye*', 'olsa iyi olur', 'iyilestir*']);
   const complaint = score(text, ['sikayet*', 'memnun degil*', 'hayal kiriklig*', 'rezalet*', 'kabul edilemez', 'magdur*']);
-  const type = complaint ? '2' : suggestion && !isCritical ? '3' : '1';
-  const topic = bestMatch(text, topics, '00');
-  const digits = '1' + type + topic + intensity + emotion + urgency;
-  return 'tellboss' + digits + checkDigit(digits);
+  const type = complaint ? 'Şikayet' : suggestion && !isCritical ? 'Öneri' : 'Sorun';
+  const matches = matchedRules(text, topics);
+  const subjects = matches.length ? matches : [['00', 'Diğer']];
+  return [
+    urgency,
+    type,
+    subjects.map(subject => subject[1]).join(' / '),
+    intensity,
+    emotion?.[1],
+    'Kod ' + subjects.map(subject => subject[0]).join(', '),
+  ].filter(Boolean).join(' | ');
 }
 
 function mailDraft(original) {
   const body = original.replace(/\r\n?|\n/g, '\r\n').toWellFormed();
-  return 'mailto:' + emailAddress + '?subject=' + makeTag(original) + '&body=' + encodeURIComponent(body);
+  return 'mailto:' + emailAddress + '?subject=' + encodeURIComponent(makeSubject(original))
+    + '&body=' + encodeURIComponent(body);
 }
 
 const form = document.getElementById('complaint-form');
@@ -217,7 +212,7 @@ form.addEventListener('submit', event => {
 
   const draft = mailDraft(original);
   send.classList.add('is-sending');
-  showFeedback('Gönderimi e-posta uygulamanızda tamamlayın.');
+  showFeedback('Göndermeden önce konu satırını e-posta uygulamanızda düzenleyebilirsiniz.');
   window.location.href = draft;
 });
 
