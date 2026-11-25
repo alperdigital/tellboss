@@ -228,11 +228,11 @@ function serializeItem(item, position) {
   const [typeCode, typeName] = item.type;
   const baseCode = typeCode + topicCode + String(position).padStart(2, '0');
   if (item.order) {
-    const code = baseCode + '00';
     const order = standardOrder(item.order);
     return {
-      fields: [['Tür', typeName], ['Kod', code], ['Departman', department], ...order.fields, ['Aciliyet', urgency]],
-      details: order.hasUnlistedValues ? code + ' · ' + orderSummary(item.order).join(' · ') : '',
+      code: '0.' + baseCode + '00',
+      fields: [['Tür', typeName], ['Departman', department], ...order.fields, ['Aciliyet', urgency]],
+      details: order.hasUnlistedValues ? orderSummary(item.order).join(' · ') : '',
     };
   }
   const emotion = bestRule(text, emotions);
@@ -240,9 +240,9 @@ function serializeItem(item, position) {
   const moderateIntensity = score(text, ['cok', 'tekrar', 'kabul edilemez', 'ciddi*', 'maalesef']);
   const intensityCode = highIntensity || /[!?]{3,}/u.test(item.text) ? '3'
     : moderateIntensity || emotion?.[0] === '1' ? '2' : '1';
-  const code = baseCode + intensityCode + (emotion?.[0] ?? '0');
   return {
-    fields: [['Tür', typeName], ['Kod', code], ['Departman', department], ['Konu', topicName], ['Aciliyet', urgency]],
+    code: '0.' + baseCode + intensityCode + (emotion?.[0] ?? '0'),
+    fields: [['Tür', typeName], ['Departman', department], ['Konu', topicName], ['Aciliyet', urgency]],
   };
 }
 
@@ -250,10 +250,10 @@ function mailDraft(original) {
   const items = splitItems(original);
   if (!items.length) items.push({ text: original, topic: otherTopic, type: types.problem });
   const records = items.map((item, index) => serializeItem(item, index + 1));
-  const subject = ['Tellboss/2', ...records.map(record => record.fields
+  const subject = records.map(record => [record.code, ...record.fields
     .filter(([, value]) => value !== '' && value !== undefined)
-    .map(([key, value]) => key + '=' + value).join(' · '))].join(' | ');
-  const details = records.map(record => record.details).filter(Boolean);
+    .map(([key, value]) => key + '=' + value)].join(' · ')).join(' | ');
+  const details = records.filter(record => record.details).map(record => record.code + ' · ' + record.details);
   const body = details.length ? [original, '', 'Sipariş ayrıntıları', ...details].join('\n') : original;
   return 'mailto:' + emailAddress + '?subject=' + encodeURIComponent(subject)
     + '&body=' + encodeURIComponent(body.replace(/\r\n?|\n/g, '\r\n').toWellFormed());
