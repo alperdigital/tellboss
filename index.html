@@ -198,15 +198,25 @@ function splitItems(original) {
         || (inferredType === types.suggestion && previous?.type !== types.suggestion)
         || (inferredType === types.complaint && previous?.type === types.suggestion);
       const isContinuation = /^ (?:bu yuzden|bu nedenle|bunun uzerine|ornek olarak|ornegin) /u.test(normalized);
+      const isRelatedGeneralTopic = previous && previous.topic !== topic && generalTopics.includes(topic)
+        && previous.sentenceIndex === sentenceIndex
+        && previous.topic[0].slice(0, 2) === topic[0].slice(0, 2);
       const hasSeparateTopic = previous && topic !== otherTopic && previous.topic !== otherTopic
-        && (topic !== previous.topic || previous.sentenceIndex !== sentenceIndex) && !isContinuation;
+        && (topic !== previous.topic || previous.sentenceIndex !== sentenceIndex) && !isContinuation && !isRelatedGeneralTopic;
 
       if (!previous || previous.order || hasSeparateType || hasSeparateTopic) {
-        items.push({ text: body, topic, type: inferredType, declaredType: declaredReportType, sentenceIndex });
+        items.push({ text: body, headline: body, topic, type: inferredType, declaredType: declaredReportType, sentenceIndex });
         continue;
       }
 
       previous.text = [previous.text, body].filter(Boolean).join(' ');
+      if (!previous.headline || (previous.topic === otherTopic && topic !== otherTopic)) {
+        previous.headline = body;
+      } else if (body && previous.sentenceIndex === sentenceIndex
+        && (isRelatedGeneralTopic || !previous.headline.includes(' '))) {
+        const separator = topic !== otherTopic && topic === previous.topic ? ' ve ' : ' ';
+        previous.headline += separator + body;
+      }
       if (previous.topic === otherTopic) previous.topic = topic;
       previous.type = previous.declaredType ?? classifyType(searchable(previous.text));
     }
@@ -215,23 +225,42 @@ function splitItems(original) {
   return items.filter(item => item.text);
 }
 
+function reportHeadline(item, urgency) {
+  let headline = (item.headline || item.text)
+    .replace(/\bacil\s+de[ğg]il(?:dir)?\b/giu, '')
+    .replace(/^\s*(?:merhaba|selam|iyi günler|iyi akşamlar|günaydın)[\s,.!:-]+/iu, '')
+    .replace(/\|/gu, '/')
+    .replace(/\s+/gu, ' ')
+    .replace(/^[\s,.:;!?–—-]+|[\s,.:;!?–—-]+$/gu, '');
+  if (urgency) headline = headline.replace(/^(?:acil(?:en)?|kritik)[\s,.:–—-]+/iu, '');
+  if (!headline) return item.topic[1];
+
+  headline = headline[0].toLocaleUpperCase('tr') + headline.slice(1);
+  const characters = Array.from(headline);
+  if (characters.length <= 78) return headline;
+  const prefix = characters.slice(0, 77).join('');
+  const lastSpace = prefix.lastIndexOf(' ');
+  return (lastSpace >= 54 ? prefix.slice(0, lastSpace) : prefix) + '…';
+}
+
 function summarizeItem(item, position) {
   const text = searchable(item.text);
   const urgencyText = withoutNegatedAlerts(text);
   const urgency = score(urgencyText, criticalTerms) ? 'Kritik'
     : score(urgencyText, ['acil', 'acilen', 'hemen', 'derhal', 'bugun icinde']) ? 'Acil' : '';
-  const [topicCode, topicName, department] = item.topic;
+  const [topicCode] = item.topic;
   const [typeCode, typeName] = item.type;
-  const code = typeCode + topicCode + String(position).padStart(2, '0');
+  const baseCode = typeCode + topicCode + String(position).padStart(2, '0');
   if (item.order) {
-    return [urgency, typeName, department, ...orderSummary(item.order), 'Kod ' + code].filter(Boolean).join(' · ');
+    return [urgency, typeName, ...orderSummary(item.order), 'Kod ' + baseCode + '00'].filter(Boolean).join(' · ');
   }
   const emotion = bestRule(text, emotions);
   const highIntensity = score(text, ['dayanilmaz*', 'rezalet*', 'skandal*', 'kesinlikle kabul edilemez', 'defalarca']);
   const moderateIntensity = score(text, ['cok', 'tekrar', 'kabul edilemez', 'ciddi*', 'maalesef']);
-  const intensity = highIntensity || /[!?]{3,}/u.test(item.text) ? 'Yüksek yoğunluk'
-    : moderateIntensity || emotion?.[0] === '1' ? 'Orta yoğunluk' : 'Düşük yoğunluk';
-  return [urgency, typeName, department, topicName, intensity, emotion?.[1], 'Kod ' + code]
+  const intensityCode = highIntensity || /[!?]{3,}/u.test(item.text) ? '3'
+    : moderateIntensity || emotion?.[0] === '1' ? '2' : '1';
+  const code = baseCode + intensityCode + (emotion?.[0] ?? '0');
+  return [urgency, typeName, reportHeadline(item, urgency), 'Kod ' + code]
     .filter(Boolean).join(' · ');
 }
 
@@ -245,7 +274,7 @@ function makeSubject(original) {
 
 function mailDraft(original) {
   const body = original.replace(/\r\n?|\n/g, '\r\n').toWellFormed();
-  return 'mailto:' + emailAddress + '?subject=' + encodeURIComponent(makeSubject(original))
+  return 'mailto:' + emailAddress + '?subject=' + encodeURIComponent(makeSubject(original).toWellFormed())
     + '&body=' + encodeURIComponent(body);
 }
 
@@ -502,7 +531,11 @@ function orderSummary(order) {
   const name = order.quantity
     ? order.quantity + (order.unit ? ' ' + order.unit + ' ' : ' × ') + product
     : product;
-  return [name, ...order.modifiers.map(option => option.kind + ' ' + option.value)];
+  const details = ['İçerik', 'Hariç'].flatMap(kind => {
+    const values = order.modifiers.filter(option => option.kind === kind).map(option => option.value);
+    return values.length ? [kind + ' (' + values.join(', ') + ')'] : [];
+  });
+  return [name, ...details];
 }
 
 const form = document.getElementById('complaint-form');
