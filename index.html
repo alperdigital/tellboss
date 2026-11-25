@@ -22,11 +22,14 @@
     button:focus-visible { outline: 3px solid #427a5c; outline-offset: 4px; }
     .mic { position: absolute; right: 15px; top: 15px; display: grid; place-items: center; width: 56px; height: 56px; border: 0; border-radius: 50%; background: #c8f3d2; color: #17472c; box-shadow: inset 0 0 0 1px #a9e3b6; transition: background .16s ease, transform .16s ease; }
     .mic:hover { background: #a9eeb9; transform: translateY(-1px); }
+    .mic[aria-expanded="true"] { background: #a9eeb9; }
     .mic svg { display: block; }
     .send { width: 100%; min-height: 53px; margin-top: 12px; padding: 10px 16px; border: 0; border-radius: 16px; background: #192820; color: #fff; font-weight: 700; }
     .send:hover { background: #2b4737; }
     .message { margin: 10px 2px 0; color: #3f574b; font-size: .9rem; line-height: 1.45; }
-    .dictation-settings { margin: 4px 2px 0; color: #3f574b; font-size: .875rem; line-height: 1.45; }
+    .dictation-help { margin-top: 8px; padding: 11px 14px; border: 1px solid #d3e7d7; border-radius: 14px; background: #eef7ef; color: #294437; font-size: .875rem; line-height: 1.45; }
+    .dictation-help p { margin: 0; }
+    .dictation-help p + p { margin-top: 5px; }
     .error { color: #8a2928; }
     .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     [hidden] { display: none !important; }
@@ -45,10 +48,10 @@
           <svg aria-hidden="true" width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M6 11v1a6 6 0 0 0 12 0v-1m-6 7v3m-3 0h6"/></svg>
         </button>
       </div>
-      <div id="dictation-help" hidden>
-        <p class="message" id="dictation-instruction">Klavyedeki mikrofona dokunun.</p>
-        <p class="dictation-settings" id="ios-dictation"><strong>Görünmüyorsa (iPhone):</strong> Ayarlar → Genel → Klavye → Dikte’yi Etkinleştir.</p>
-        <p class="dictation-settings" id="android-dictation"><strong>Görünmüyorsa (Android / Gboard):</strong> Klavyedeki Ayarlar → Sesle yazmayı aç.</p>
+      <div class="dictation-help" id="dictation-help" hidden>
+        <p id="dictation-instruction">Klavyedeki mikrofona dokunun.</p>
+        <p><strong>Görünmüyorsa (iPhone):</strong> Ayarlar → Genel → Klavye → Dikte’yi Etkinleştir.</p>
+        <p><strong>Görünmüyorsa (Android / Gboard):</strong> Klavyedeki Ayarlar → Sesle yazmayı aç.</p>
       </div>
       <button class="send" type="submit">Gönder</button>
       <p class="message" id="feedback" role="status" hidden></p>
@@ -140,13 +143,8 @@ function mailDraft(original) {
 const form = document.getElementById('complaint-form');
 const message = document.getElementById('message');
 const dictation = document.getElementById('dictation');
+const dictationHelp = document.getElementById('dictation-help');
 const feedback = document.getElementById('feedback');
-
-const device = navigator.userAgent;
-const isAppleMobile = /iPhone|iPad|iPod/i.test(device) || (/Macintosh/i.test(device) && navigator.maxTouchPoints > 1);
-const isAndroid = /Android/i.test(device);
-document.getElementById('ios-dictation').hidden = isAndroid;
-document.getElementById('android-dictation').hidden = isAppleMobile;
 
 function showFeedback(text, error = false) {
   feedback.textContent = text;
@@ -155,10 +153,15 @@ function showFeedback(text, error = false) {
 }
 
 dictation.addEventListener('click', () => {
-  document.getElementById('dictation-help').hidden = false;
-  dictation.setAttribute('aria-expanded', 'true');
-  message.setAttribute('aria-describedby', 'dictation-instruction');
-  message.focus();
+  const opening = dictationHelp.hidden;
+  dictationHelp.hidden = !opening;
+  dictation.setAttribute('aria-expanded', String(opening));
+  if (opening) {
+    message.setAttribute('aria-describedby', 'dictation-instruction');
+    message.focus();
+  } else {
+    message.removeAttribute('aria-describedby');
+  }
 });
 
 message.addEventListener('input', () => {
