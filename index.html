@@ -78,23 +78,44 @@
 const emailAddress = 'alperdigital@icloud.com';
 
 const topics = [
-  ['08', 'Güvenlik ve sağlık', ['guvenlik*', 'tehlike*', 'yaralan*', 'yangin*', 'gaz kacag*', 'bayil*', 'zehirlen*']],
-  ['04', 'Temizlik ve hijyen', ['kirli*', 'temiz*', 'hijyen*', 'leke*', 'cop*']],
-  ['01', 'Ödeme ve ücret', ['hesap*', 'odeme*', 'ucret*', 'fatura*', 'iade*', 'pahali*', 'pos']],
-  ['07', 'Personel ve iletişim', ['personel*', 'calisan*', 'kaba*', 'hakaret*', 'garson*', 'resepsiyon*', 'ilgisiz*', 'musteri hizmet*']],
-  ['06', 'Sipariş ve teslimat', ['siparis*', 'teslimat*', 'kargo*', 'kurye*', 'paket*']],
-  ['05', 'Teknik sorun', ['ariza*', 'bozuk*', 'calismi*', 'klima*', 'internet*', 'uygulama*', 'elektrik*']],
-  ['03', 'Ürün ve hizmet kalitesi', ['urun*', 'yemek*', 'icecek*', 'kahve*', 'soguk*', 'bayat*', 'kalite*']],
-  ['02', 'Servis ve bekleme', ['bekle*', 'gecik*', 'yavas*', 'sira*', 'servis*']],
-  ['09', 'Ortam ve tesis', ['gurultu*', 'oda*', 'sicaklik*', 'masa*', 'havalandirma*', 'otopark*']],
-  ['10', 'Erişilebilirlik', ['engelli*', 'tekerlekli sandalye*', 'erisim*', 'rampa*', 'asansor*']],
+  ['080', 'Güvenlik ve sağlık', 'Güvenlik', ['guvenlik*', 'tehlike*', 'yaralan*', 'yangin*', 'gaz kacag*', 'bayil*', 'zehirlen*', 'nefes alam*']],
+  ['041', 'Yastık ve nevresim', 'Oda servisi', ['yastik*', 'yastig*', 'nevresim*', 'carsaf*', 'yorgan*', 'battaniye*']],
+  ['042', 'Oda malzemeleri', 'Oda servisi', ['havlu*', 'sabun*', 'sampuan*', 'tuvalet kagid*', 'terlik*']],
+  ['040', 'Temizlik ve hijyen', 'Kat hizmetleri', ['kirli*', 'temiz*', 'hijyen*', 'leke*', 'cop*']],
+  ['051', 'Klima ve ısıtma', 'Teknik servis', ['klima*', 'kalorifer*', 'isitma*', 'sogutma*']],
+  ['052', 'İnternet ve bağlantı', 'Teknik servis', ['internet*', 'wifi*', 'wi fi']],
+  ['053', 'Elektrik ve aydınlatma', 'Teknik servis', ['elektrik*', 'priz*', 'lamba*', 'aydinlatma*']],
+  ['054', 'Su ve tesisat', 'Teknik servis', ['sicak su', 'su yok', 'musluk*', 'tesisat*', 'dus']],
+  ['031', 'Yiyecek ve içecek', 'Kafeterya', ['yemek*', 'yiyecek*', 'icecek*', 'kahve*', 'kahvalti*', 'kafeterya*', 'restoran*', 'menu*', 'porsiyon*']],
+  ['010', 'Ödeme ve ücret', 'Resepsiyon', ['hesap*', 'odeme*', 'ucret*', 'fatura*', 'iade*', 'pahali*', 'pos']],
+  ['071', 'Rezervasyon ve giriş', 'Resepsiyon', ['rezervasyon*', 'resepsiyon*', 'check in', 'check out']],
+  ['070', 'Personel ve iletişim', 'Misafir ilişkileri', ['personel*', 'calisan*', 'kaba*', 'hakaret*', 'garson*', 'ilgisiz*', 'musteri hizmet*']],
+  ['060', 'Sipariş ve teslimat', 'Oda servisi', ['siparis*', 'teslimat*', 'kurye*', 'paket*']],
+  ['091', 'Gürültü', 'Misafir ilişkileri', ['gurultu*', 'yuksek ses', 'uyuyama*']],
+  ['100', 'Erişilebilirlik', 'Misafir ilişkileri', ['engelli*', 'tekerlekli sandalye*', 'erisim*', 'rampa*', 'asansor*']],
 ];
+const generalTopics = [
+  ['050', 'Teknik sorun', 'Teknik servis', ['ariza*', 'bozuk*', 'calismi*', 'uygulama*']],
+  ['030', 'Ürün ve hizmet kalitesi', 'Misafir ilişkileri', ['urun*', 'kalite*', 'bayat*']],
+  ['020', 'Servis ve bekleme', 'Misafir ilişkileri', ['bekle*', 'gecik*', 'yavas*', 'sira*', 'servis*']],
+  ['090', 'Ortam ve tesis', 'Misafir ilişkileri', ['havalandirma*', 'otopark*', 'tesis*', 'koridor*']],
+];
+const otherTopic = ['000', 'Genel konu', 'Misafir ilişkileri'];
 const emotions = [
   ['3', 'Endişe', ['endise*', 'kork*', 'panik*', 'kaygi*', 'tedirgin*']],
   ['1', 'Öfke', ['sinirli*', 'ofke*', 'kizgin*', 'rezalet*', 'skandal*', 'kabul edilemez']],
   ['2', 'Hayal kırıklığı veya üzüntü', ['hayal kiriklig*', 'uzgun*', 'uzuldum', 'memnun degil*', 'maalesef']],
   ['4', 'Memnuniyet', ['tesekkur*', 'memnun kald*', 'harika*', 'begendim', 'cok iyi']],
 ];
+
+const types = {
+  problem: ['1', 'Sorun'],
+  complaint: ['2', 'Şikayet'],
+  suggestion: ['3', 'Öneri'],
+};
+const suggestionTerms = ['oneri*', 'tavsiye*', 'olsa iyi olur', 'iyilestir*'];
+const complaintTerms = ['sikayet*', 'memnun degil*', 'memnun kalmadi*', 'hayal kiriklig*', 'rezalet*', 'kabul edilemez', 'magdur*', 'berbat*', 'kotu', 'kotuy*', 'bayat*', 'kirli*'];
+const criticalTerms = ['yangin*', 'gaz kacag*', 'bayil*', 'zehirlen*', 'nefes alam*'];
 
 function searchable(text) {
   return ' ' + text.toLocaleLowerCase('tr')
@@ -110,38 +131,101 @@ function score(text, expressions) {
   }).length;
 }
 
-function matchedRules(text, rules) {
-  return rules
-    .map(rule => ({ rule, matches: score(text, rule[2]) }))
-    .filter(result => result.matches > 0)
-    .sort((first, second) => second.matches - first.matches)
-    .map(result => result.rule);
+function bestRule(text, rules) {
+  let best;
+  let bestScore = 0;
+  for (const rule of rules) {
+    const matches = score(text, rule.at(-1));
+    if (matches > bestScore) {
+      best = rule;
+      bestScore = matches;
+    }
+  }
+  return best;
+}
+
+function withoutNegatedAlerts(text) {
+  return text
+    .replace(/ (?:acil degil(?:dir)?|yangin yok(?:tur)?|gaz kacag[ıi]? yok(?:tur)?|bayilmadi\w*|zehirlenmedi\w*)(?= )/g, '');
+}
+
+function classifyType(text) {
+  if (score(text, complaintTerms)) return types.complaint;
+  if (score(text, suggestionTerms)) return types.suggestion;
+  return types.problem;
+}
+
+function classifyTopic(text) {
+  return bestRule(text, topics) ?? bestRule(text, generalTopics) ?? otherTopic;
+}
+
+function splitItems(original) {
+  const items = [];
+  const sentences = original.split(/\s*[;\r\n]+\s*|(?<=[.!?])\s+/u);
+  for (const [sentenceIndex, sentence] of sentences.entries()) {
+    let declaredType;
+    const fragments = sentence.split(/\s*,\s*|\s+(?:ve|ama|ancak|fakat|ayrıca|bir de|öte yandan|bunun yanında)\s+/iu);
+    for (const fragment of fragments) {
+      const part = fragment.trim().replace(/^(?:[-•*]|\d+[.)])\s+/u, '');
+      if (!/[\p{L}]/u.test(part)) continue;
+
+      const label = part.match(/^(?:\d+\s+)?(şik[aâ]yet(?:lerim|im|ler)?|öneri(?:lerim|m|ler)?|sorun(?:larım|um|lar)?)(?:\s+(?:var|şu))?\s*[:–—-]\s*/iu)
+        ?? part.match(/^(şik[aâ]yetim|önerim|sorunum)(?:\s+|$)/iu);
+      if (label) {
+        const marker = searchable(label[1]).trim();
+        declaredType = marker.startsWith('sikayet') ? types.complaint
+          : marker.startsWith('oneri') ? types.suggestion : types.problem;
+      }
+
+      const body = label ? part.slice(label[0].length) : part;
+      const normalized = withoutNegatedAlerts(searchable(body));
+      const topic = classifyTopic(normalized);
+      const inferredType = declaredType ?? classifyType(normalized);
+      const previous = items.at(-1);
+      const hasSeparateType = (label && previous?.text)
+        || (inferredType === types.suggestion && previous?.type !== types.suggestion)
+        || (inferredType === types.complaint && previous?.type === types.suggestion);
+      const isContinuation = /^ (?:bu yuzden|bu nedenle|bunun uzerine|ornek olarak|ornegin) /u.test(normalized);
+      const hasSeparateTopic = previous && topic !== otherTopic && previous.topic !== otherTopic
+        && (topic !== previous.topic || previous.sentenceIndex !== sentenceIndex) && !isContinuation;
+
+      if (!previous || hasSeparateType || hasSeparateTopic) {
+        items.push({ text: body, topic, type: inferredType, declaredType, sentenceIndex });
+        continue;
+      }
+
+      previous.text = [previous.text, body].filter(Boolean).join(' ');
+      if (previous.topic === otherTopic) previous.topic = topic;
+      previous.type = previous.declaredType ?? classifyType(searchable(previous.text));
+    }
+  }
+
+  return items.filter(item => item.text);
+}
+
+function summarizeItem(item, position) {
+  const text = searchable(item.text);
+  const urgencyText = withoutNegatedAlerts(text);
+  const urgency = score(urgencyText, criticalTerms) ? 'Kritik'
+    : score(urgencyText, ['acil', 'acilen', 'hemen', 'derhal', 'bugun icinde']) ? 'Acil' : '';
+  const emotion = bestRule(text, emotions);
+  const highIntensity = score(text, ['dayanilmaz*', 'rezalet*', 'skandal*', 'kesinlikle kabul edilemez', 'defalarca']);
+  const moderateIntensity = score(text, ['cok', 'tekrar', 'kabul edilemez', 'ciddi*', 'maalesef']);
+  const intensity = highIntensity || /[!?]{3,}/u.test(item.text) ? 'Yüksek yoğunluk'
+    : moderateIntensity || emotion?.[0] === '1' ? 'Orta yoğunluk' : 'Düşük yoğunluk';
+  const [topicCode, topicName, department] = item.topic;
+  const [typeCode, typeName] = item.type;
+  const code = typeCode + topicCode + String(position).padStart(2, '0');
+  return [urgency, typeName, department, topicName, intensity, emotion?.[1], 'Kod ' + code]
+    .filter(Boolean).join(' · ');
 }
 
 function makeSubject(original) {
-  const text = searchable(original);
-  const urgencyText = text.replace(/ acil degil(?:dir)?(?= )/g, '');
-  const isCritical = score(urgencyText, ['yangin*', 'gaz kacag*', 'bayil*', 'zehirlen*', 'nefes alam*']);
-  const isUrgent = score(urgencyText, ['acil', 'acilen', 'hemen', 'derhal', 'bugun icinde']);
-  const urgency = isCritical ? 'Kritik' : isUrgent ? 'Acil' : '';
-  const [emotion] = matchedRules(text, emotions);
-  const highIntensity = score(text, ['dayanilmaz*', 'rezalet*', 'skandal*', 'kesinlikle kabul edilemez', 'defalarca']);
-  const moderateIntensity = score(text, ['cok', 'tekrar', 'kabul edilemez', 'ciddi*', 'maalesef']);
-  const intensity = highIntensity || /[!?]{3,}/u.test(original) ? 'Yüksek yoğunluk'
-    : moderateIntensity || emotion?.[0] === '1' ? 'Orta yoğunluk' : 'Düşük yoğunluk';
-  const suggestion = score(text, ['oneri*', 'tavsiye*', 'olsa iyi olur', 'iyilestir*']);
-  const complaint = score(text, ['sikayet*', 'memnun degil*', 'hayal kiriklig*', 'rezalet*', 'kabul edilemez', 'magdur*']);
-  const type = complaint ? 'Şikayet' : suggestion && !isCritical ? 'Öneri' : 'Sorun';
-  const matches = matchedRules(text, topics);
-  const subjects = matches.length ? matches : [['00', 'Diğer']];
-  return [
-    urgency,
-    type,
-    subjects.map(subject => subject[1]).join(' / '),
-    intensity,
-    emotion?.[1],
-    'Kod ' + subjects.map(subject => subject[0]).join(', '),
-  ].filter(Boolean).join(' | ');
+  const items = splitItems(original);
+  if (!items.length) {
+    return summarizeItem({ text: original, topic: otherTopic, type: types.problem }, 1);
+  }
+  return items.map((item, index) => summarizeItem(item, index + 1)).join(' | ');
 }
 
 function mailDraft(original) {
