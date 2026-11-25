@@ -206,18 +206,11 @@ function splitItems(original) {
         && (topic !== previous.topic || previous.sentenceIndex !== sentenceIndex) && !isContinuation && !isRelatedGeneralTopic;
 
       if (!previous || previous.order || hasSeparateType || hasSeparateTopic) {
-        items.push({ text: body, headline: body, topic, type: inferredType, declaredType: declaredReportType, sentenceIndex });
+        items.push({ text: body, topic, type: inferredType, declaredType: declaredReportType, sentenceIndex });
         continue;
       }
 
       previous.text = [previous.text, body].filter(Boolean).join(' ');
-      if (!previous.headline || (previous.topic === otherTopic && topic !== otherTopic)) {
-        previous.headline = body;
-      } else if (body && previous.sentenceIndex === sentenceIndex
-        && (isRelatedGeneralTopic || !previous.headline.includes(' '))) {
-        const separator = topic !== otherTopic && topic === previous.topic ? ' ve ' : ' ';
-        previous.headline += separator + body;
-      }
       if (previous.topic === otherTopic) previous.topic = topic;
       previous.type = previous.declaredType ?? classifyType(searchable(previous.text));
     }
@@ -226,34 +219,21 @@ function splitItems(original) {
   return items.filter(item => item.text);
 }
 
-function reportHeadline(item, urgency) {
-  let headline = (item.headline || item.text)
-    .replace(/\bacil\s+de[ğg]il(?:dir)?\b/giu, '')
-    .replace(/^\s*(?:merhaba|selam|iyi günler|iyi akşamlar|günaydın)[\s,.!:-]+/iu, '')
-    .replace(/\|/gu, '/')
-    .replace(/\s+/gu, ' ')
-    .replace(/^[\s,.:;!?–—-]+|[\s,.:;!?–—-]+$/gu, '');
-  if (urgency) headline = headline.replace(/^(?:acil(?:en)?|kritik)[\s,.:–—-]+/iu, '');
-  if (!headline) return item.topic[1];
-
-  headline = headline[0].toLocaleUpperCase('tr') + headline.slice(1);
-  const characters = Array.from(headline);
-  if (characters.length <= 78) return headline;
-  const prefix = characters.slice(0, 77).join('');
-  const lastSpace = prefix.lastIndexOf(' ');
-  return (lastSpace >= 54 ? prefix.slice(0, lastSpace) : prefix) + '…';
-}
-
-function summarizeItem(item, position) {
+function serializeItem(item, position) {
   const text = searchable(item.text);
   const urgencyText = withoutNegatedAlerts(text);
   const urgency = score(urgencyText, criticalTerms) ? 'Kritik'
     : score(urgencyText, ['acil', 'acilen', 'hemen', 'derhal', 'bugun icinde']) ? 'Acil' : '';
-  const [topicCode] = item.topic;
+  const [topicCode, topicName, department] = item.topic;
   const [typeCode, typeName] = item.type;
   const baseCode = typeCode + topicCode + String(position).padStart(2, '0');
   if (item.order) {
-    return [urgency, typeName, ...orderSummary(item.order), 'Kod ' + baseCode + '00'].filter(Boolean).join(' · ');
+    const code = baseCode + '00';
+    const order = standardOrder(item.order);
+    return {
+      fields: [['Tür', typeName], ['Kod', code], ['Departman', department], ...order.fields, ['Aciliyet', urgency]],
+      details: order.hasUnlistedValues ? code + ' · ' + orderSummary(item.order).join(' · ') : '',
+    };
   }
   const emotion = bestRule(text, emotions);
   const highIntensity = score(text, ['dayanilmaz*', 'rezalet*', 'skandal*', 'kesinlikle kabul edilemez', 'defalarca']);
@@ -261,22 +241,22 @@ function summarizeItem(item, position) {
   const intensityCode = highIntensity || /[!?]{3,}/u.test(item.text) ? '3'
     : moderateIntensity || emotion?.[0] === '1' ? '2' : '1';
   const code = baseCode + intensityCode + (emotion?.[0] ?? '0');
-  return [urgency, typeName, reportHeadline(item, urgency), 'Kod ' + code]
-    .filter(Boolean).join(' · ');
-}
-
-function makeSubject(original) {
-  const items = splitItems(original);
-  if (!items.length) {
-    return summarizeItem({ text: original, topic: otherTopic, type: types.problem }, 1);
-  }
-  return items.map((item, index) => summarizeItem(item, index + 1)).join(' | ');
+  return {
+    fields: [['Tür', typeName], ['Kod', code], ['Departman', department], ['Konu', topicName], ['Aciliyet', urgency]],
+  };
 }
 
 function mailDraft(original) {
-  const body = original.replace(/\r\n?|\n/g, '\r\n').toWellFormed();
-  return 'mailto:' + emailAddress + '?subject=' + encodeURIComponent(makeSubject(original).toWellFormed())
-    + '&body=' + encodeURIComponent(body);
+  const items = splitItems(original);
+  if (!items.length) items.push({ text: original, topic: otherTopic, type: types.problem });
+  const records = items.map((item, index) => serializeItem(item, index + 1));
+  const subject = ['Tellboss/2', ...records.map(record => record.fields
+    .filter(([, value]) => value !== '' && value !== undefined)
+    .map(([key, value]) => key + '=' + value).join(' · '))].join(' | ');
+  const details = records.map(record => record.details).filter(Boolean);
+  const body = details.length ? [original, '', 'Sipariş ayrıntıları', ...details].join('\n') : original;
+  return 'mailto:' + emailAddress + '?subject=' + encodeURIComponent(subject)
+    + '&body=' + encodeURIComponent(body.replace(/\r\n?|\n/g, '\r\n').toWellFormed());
 }
 
 const menu = [
@@ -387,7 +367,7 @@ function menuMatches(words) {
       ? words[index].raw
       : single[0];
     const displayName = [...descriptionsFound, catalogName].join(' ');
-    found.push({ name: catalogName, displayName, start: index, end, quantity, unit, modifiers, modifierIndices });
+    found.push({ name: catalogName, displayName, preparations: descriptionsFound, start: index, end, quantity, unit, modifiers, modifierIndices });
     if (double) index++;
   }
   return found;
@@ -544,7 +524,7 @@ function parseOrderPart(body, explicit, items, sentenceHasOrder) {
     const existing = latestOrders.find(order => order.name === product.name);
     const isModification = !product.quantity && !request && options.some(option => option.target === product.name);
     if (existing && isModification) continue;
-    const order = { name: product.name, displayName: product.displayName, quantity: product.quantity?.value, unit: product.unit, modifiers: product.modifiers };
+    const order = { name: product.name, displayName: product.displayName, preparations: product.preparations, quantity: product.quantity?.value, unit: product.unit, modifiers: product.modifiers };
     items.push({ text: body, type: types.order, topic: orderTopic, order });
     latestOrders.unshift(order);
   }
@@ -594,6 +574,51 @@ function orderSummary(order) {
     return values.length ? [kind + ' (' + values.join(', ') + ')'] : [];
   });
   return [name, ...details];
+}
+
+function canonicalLabels(labels) {
+  return new Map(labels.map(label => [searchable(label).trim(), label]));
+}
+
+const productLabels = canonicalLabels([...menu.map(([name]) => name), 'Espresso', 'Latte', 'Cappuccino', 'Americano', 'Sipariş notu']);
+const unitLabels = canonicalLabels(['Adet', 'Tane', 'Porsiyon', 'Bardak', 'Fincan', 'Şişe']);
+const preparationLabels = canonicalLabels(['Büyük', 'Orta', 'Küçük', 'Sade', 'Demli', 'Açık', 'Sıcak', 'Soğuk', 'Duble']);
+const ingredientLabels = canonicalLabels([
+  'Acı', 'Biber', 'Buz', 'Domates', 'Hardal', 'Kapari', 'Kaşar', 'Ketçap', 'Kırmızı soğan', 'Limon', 'Marul',
+  'Mayonez', 'Peynir', 'Roka', 'Salatalık', 'Sarımsak', 'Soğan', 'Sos', 'Sucuk', 'Süt', 'Şeker', 'Tavuk',
+  'Turşu', 'Tuz', 'Zeytin', 'Zeytinyağı',
+]);
+const ingredientAliases = new Map([
+  ['tursuyu', 'Turşu'], ['tursuyu da', 'Turşu'], ['sogani', 'Soğan'], ['kasari', 'Kaşar'], ['domatesi', 'Domates'],
+  ['sekeri', 'Şeker'], ['sutu', 'Süt'], ['buzu', 'Buz'], ['tuzu', 'Tuz'], ['peyniri', 'Peynir'],
+]);
+
+function standardOrder(order) {
+  const product = productLabels.get(searchable(order.name).trim());
+  let hasUnlistedValues = !product;
+  const quantity = Number.isSafeInteger(order.quantity) && order.quantity > 0 ? order.quantity
+    : order.quantity === '½' ? '0.5' : 'Belirtilmedi';
+  const fields = [
+    ['Ürün', product ?? 'Diğer'],
+    ['Adet', quantity],
+    ['Birim', order.unit ? unitLabels.get(searchable(order.unit).trim()) : undefined],
+    ['Hazırlama', (order.preparations ?? []).map(name => preparationLabels.get(searchable(name).trim())).filter(Boolean).join(', ')],
+  ];
+
+  for (const kind of ['İçerik', 'Hariç']) {
+    const values = new Set();
+    for (const option of order.modifiers.filter(modifier => modifier.kind === kind)) {
+      for (const part of option.value.split(/\s+(?:ve|ile)\s+|\s*,\s*/iu)) {
+        const key = searchable(part).trim();
+        if (!key) continue;
+        const label = ingredientLabels.get(key) ?? ingredientAliases.get(key) ?? productLabels.get(key);
+        if (!label) hasUnlistedValues = true;
+        values.add(label ?? 'Diğer');
+      }
+    }
+    fields.push([kind, [...values].sort((first, second) => first.localeCompare(second, 'tr')).join(', ')]);
+  }
+  return { fields, hasUnlistedValues };
 }
 
 const form = document.getElementById('complaint-form');
